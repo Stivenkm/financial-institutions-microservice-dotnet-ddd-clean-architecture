@@ -97,7 +97,8 @@ public sealed class FinancialInstitutionConfiguration
         {
             colombian.Property(c => c.SuperFinancialCode)
                 .HasColumnName("SuperFinancialCode")
-                .HasMaxLength(20);
+                .HasMaxLength(20)
+                .IsRequired();
 
             colombian.OwnsOne(c => c.AchBankCode, ach =>
             {

@@ -7,6 +7,7 @@ public sealed class LocalBankCode : ValueObject
     public string Code { get; }
     public string CodeType { get; }
     public CountryCode Country { get; }
+    private LocalBankCode() { }
 
     private LocalBankCode(string code, string codeType, CountryCode country)
     {

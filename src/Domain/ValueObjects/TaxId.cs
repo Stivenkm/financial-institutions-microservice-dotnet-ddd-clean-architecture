@@ -7,6 +7,8 @@ public sealed class TaxId : ValueObject
     public string Value { get; }
     public CountryCode Country { get; }
 
+    private TaxId() { }
+
     private TaxId(string value, CountryCode country)
     {
         if (string.IsNullOrWhiteSpace(value))
