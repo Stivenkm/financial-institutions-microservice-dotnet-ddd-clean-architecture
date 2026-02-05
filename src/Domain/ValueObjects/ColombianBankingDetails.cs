@@ -6,6 +6,7 @@ public sealed class ColombianBankingDetails : ValueObject
 {
     public LocalBankCode AchBankCode { get; }
     public string? SuperFinancialCode { get; }
+    private ColombianBankingDetails() { }
 
     private ColombianBankingDetails(LocalBankCode achBankCode, string? superFinancialCode)
     {

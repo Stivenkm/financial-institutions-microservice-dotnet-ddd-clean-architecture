@@ -17,6 +17,8 @@ public sealed class FinancialInstitution
 
     public ColombianBankingDetails? ColombianDetails { get; private set; }
 
+    private FinancialInstitution() { }
+
     private FinancialInstitution(
         FinancialInstitutionId id,
         string officialName,
