@@ -1,24 +1,43 @@
+using Intec.Banking.FinancialInstitutions.Primitives;
+using Microsoft.EntityFrameworkCore.Storage;
+
 namespace Intec.Banking.FinancialInstitutions.Infrastructure;
 
 public class UnitOfWork : IUnitOfWork
 {
-    public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    private readonly FinancialInstitutionsDbContext _context;
+    private IDbContextTransaction? _transaction;
+
+    public UnitOfWork(FinancialInstitutionsDbContext context)
     {
-        throw new NotImplementedException();
+        _context = context;
     }
 
-    public Task BeginTransactionAsync(CancellationToken cancellationToken = default)
+    public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
-        throw new NotImplementedException();
+        return await _context.SaveChangesAsync(cancellationToken);
     }
 
-    public Task CommitTransactionAsync(CancellationToken cancellationToken = default)
+    public async Task BeginTransactionAsync(CancellationToken cancellationToken = default)
     {
-        throw new NotImplementedException();
+        _transaction ??= await _context.Database.BeginTransactionAsync(cancellationToken);
     }
 
-    public Task RollbackTransactionAsync(CancellationToken cancellationToken = default)
+    public async Task CommitTransactionAsync(CancellationToken cancellationToken = default)
     {
-        throw new NotImplementedException();
+        if (_transaction is null) return;
+
+        await _transaction.CommitAsync(cancellationToken);
+        await _transaction.DisposeAsync();
+        _transaction = null;
+    }
+
+    public async Task RollbackTransactionAsync(CancellationToken cancellationToken = default)
+    {
+        if (_transaction is null) return;
+
+        await _transaction.RollbackAsync(cancellationToken);
+        await _transaction.DisposeAsync();
+        _transaction = null;
     }
 }
