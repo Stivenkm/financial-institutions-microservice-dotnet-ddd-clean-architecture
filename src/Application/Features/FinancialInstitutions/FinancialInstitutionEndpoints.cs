@@ -1,8 +1,10 @@
 using Intec.Banking.FinancialInstitutions.Application.Features.FinancialInstitutions.CreateFinancialInstitution;
+using Intec.Banking.FinancialInstitutions.Application.Features.FinancialInstitutions.DeleteFinancialInstitution;
 using Intec.Banking.FinancialInstitutions.Application.Features.FinancialInstitutions.GetFinancialInstitutionById;
-using Intec.Banking.FinanciialInstitutions.Application.Features.FinnacialInstitutions.UpdateFinancialIntituion;
+using Intec.Banking.FinancialInstitutions.Application.Features.FinancialInstitutions.UpdateFinancialInstitution;
 using Intec.Banking.FinancialInstitutions.Domain.ValueObjects;
 using Intec.Banking.FinancialInstitutions.Primitives;
+using Intec.Banking.FinanciialInstitutions.Application.Features.FinnacialInstitutions.UpdateFinancialIntituion;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Intec.Banking.FinancialInstitutions.Application.Features.FinancialInstitutions;
@@ -32,6 +34,12 @@ public static class FinancialInstitutionEndpoints
             .WithSummary("Update an existing financial institution")
             .Produces(StatusCodes.Status204NoContent)
             .ProducesValidationProblem()
+            .Produces(StatusCodes.Status404NotFound);
+
+        group.MapDelete("/{id:guid}", DeleteFinancialInstitution)
+            .WithName("DeleteFinancialInstitution")
+            .WithSummary("Delete an existing financial institution")
+            .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status404NotFound);
 
         return app;
@@ -72,6 +80,21 @@ public static class FinancialInstitutionEndpoints
         };
 
         await dispatcher.DispatchAsync(updatedCommand, ct);
+
+        return Results.NoContent();
+    }
+
+    private static async Task<IResult> DeleteFinancialInstitution(
+    Guid id,
+    [FromServices] CommandDispatcher dispatcher,
+    CancellationToken ct)
+    {
+        var command = new DeleteFinancialInstitutionCommand
+        {
+            Id = FinancialInstitutionId.From(id)
+        };
+
+        await dispatcher.DispatchAsync(command, ct);
 
         return Results.NoContent();
     }
