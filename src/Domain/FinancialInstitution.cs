@@ -65,6 +65,28 @@ public sealed class FinancialInstitution
             swiftBic);
     }
 
+    public void Update(
+        string officialName,
+        string? tradeName,
+        CountryCode country,
+        TaxId taxId,
+        SwiftBic? swiftBic)
+    {
+        if (string.IsNullOrWhiteSpace(officialName))
+            throw new ArgumentException("Official name cannot be empty.");
+
+        if (!Equals(taxId.Country, country))
+            throw new ArgumentException("TaxId country must match the institution's country.");
+
+        if (!country.IsColombia() && swiftBic == null)
+            throw new ArgumentException("SWIFT/BIC is required for non-Colombian institutions.");
+
+        OfficialName = officialName.Trim();
+        TradeName = tradeName?.Trim();
+        Country = country;
+        TaxId = taxId;
+        SwiftBic = swiftBic;
+    }
     public void AddLocalCode(LocalBankCode code)
     {
         if (_localCodes.Contains(code)) return;

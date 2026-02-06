@@ -1,5 +1,6 @@
 using Intec.Banking.FinancialInstitutions.Application.Features.FinancialInstitutions.CreateFinancialInstitution;
 using Intec.Banking.FinancialInstitutions.Application.Features.FinancialInstitutions.GetFinancialInstitutionById;
+using Intec.Banking.FinanciialInstitutions.Application.Features.FinnacialInstitutions.UpdateFinancialIntituion;
 using Intec.Banking.FinancialInstitutions.Domain.ValueObjects;
 using Intec.Banking.FinancialInstitutions.Primitives;
 using Microsoft.AspNetCore.Mvc;
@@ -26,6 +27,13 @@ public static class FinancialInstitutionEndpoints
             .Produces<DTOs.FinancialInstitutionDto>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status404NotFound);
 
+        group.MapPut("/{id:guid}", UpdateFinancialInstitution)
+            .WithName("UpdateFinancialInstitution")
+            .WithSummary("Update an existing financial institution")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesValidationProblem()
+            .Produces(StatusCodes.Status404NotFound);
+
         return app;
     }
 
@@ -50,5 +58,21 @@ public static class FinancialInstitutionEndpoints
         return result is not null
             ? Results.Ok(result)
             : Results.NotFound();
+    }
+
+    private static async Task<IResult> UpdateFinancialInstitution(
+        Guid id,
+        [FromBody] UpdateFinancialInstitutionCommand command,
+        [FromServices] CommandDispatcher dispatcher,
+        CancellationToken ct)
+    {
+        var updatedCommand = command with
+        {
+            Id = FinancialInstitutionId.From(id)
+        };
+
+        await dispatcher.DispatchAsync(updatedCommand, ct);
+
+        return Results.NoContent();
     }
 }
