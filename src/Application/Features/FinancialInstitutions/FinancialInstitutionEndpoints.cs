@@ -1,10 +1,10 @@
 using Intec.Banking.FinancialInstitutions.Application.Features.FinancialInstitutions.CreateFinancialInstitution;
 using Intec.Banking.FinancialInstitutions.Application.Features.FinancialInstitutions.DeleteFinancialInstitution;
 using Intec.Banking.FinancialInstitutions.Application.Features.FinancialInstitutions.GetFinancialInstitutionById;
-using Intec.Banking.FinancialInstitutions.Application.Features.FinancialInstitutions.UpdateFinancialInstitution;
+using Intec.Banking.FinancialInstitutions.Application.Features.FinancialInstitutions.UpdateFinancialInstituion;
+using Intec.Banking.FinancialInstitutions.Application.Features.FinancialInstitutions.GetFinancialInstitutions;
 using Intec.Banking.FinancialInstitutions.Domain.ValueObjects;
 using Intec.Banking.FinancialInstitutions.Primitives;
-using Intec.Banking.FinanciialInstitutions.Application.Features.FinnacialInstitutions.UpdateFinancialIntituion;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Intec.Banking.FinancialInstitutions.Application.Features.FinancialInstitutions;
@@ -28,6 +28,12 @@ public static class FinancialInstitutionEndpoints
             .WithSummary("Get a financial institution by ID")
             .Produces<DTOs.FinancialInstitutionDto>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status404NotFound);
+
+        group.MapGet("/", GetFinancialInstitutions)
+            .WithName("GetFinancialInstitutions")
+            .WithSummary("Get financial institutions paginated")
+            .Produces<List<DTOs.FinancialInstitutionDto>>(StatusCodes.Status200OK)
+            .ProducesValidationProblem();
 
         group.MapPut("/{id:guid}", UpdateFinancialInstitution)
             .WithName("UpdateFinancialInstitution")
@@ -66,6 +72,19 @@ public static class FinancialInstitutionEndpoints
         return result is not null
             ? Results.Ok(result)
             : Results.NotFound();
+    }
+
+    private static async Task<IResult> GetFinancialInstitutions(
+    [FromQuery] int page,
+    [FromQuery] int pageSize,
+    [FromServices] QueryDispatcher dispatcher,
+    CancellationToken ct)
+    {
+        var query = new GetFinancialInstitutionsQuery(page, pageSize);
+
+        var result = await dispatcher.DispatchAsync(query, ct);
+
+        return Results.Ok(result);
     }
 
     private static async Task<IResult> UpdateFinancialInstitution(

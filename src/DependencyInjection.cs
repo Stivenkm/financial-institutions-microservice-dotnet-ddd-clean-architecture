@@ -46,7 +46,10 @@ public static class DependencyInjection
         RegisterHandlers(services, typeof(IQueryHandler<,>));
 
         // FluentValidation - Register all validators from assembly
-       // services.AddValidatorsFromAssemblyContaining<>(ServiceLifetime.Scoped);
+        // services.AddValidatorsFromAssemblyContaining<>(ServiceLifetime.Scoped);
+
+        // FluentValidation
+        services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly);
 
         // Filters
         services.AddScoped<ValidationFilter>();
