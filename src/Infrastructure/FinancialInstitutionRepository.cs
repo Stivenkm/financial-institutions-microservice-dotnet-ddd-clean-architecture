@@ -24,6 +24,16 @@ public class FinancialInstitutionRepository : IFinancialInstitutionRepository
         return await _context.FinancialInstitutions.ToListAsync(ct);
     }
 
+    public async Task<List<FinancialInstitution>> GetPagedAsync(int page, int pageSize, CancellationToken ct = default)
+    {
+        return await _context.FinancialInstitutions
+            .AsNoTracking()
+            .OrderBy(x => x.OfficialName)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(ct);
+    }
+
     public async Task AddAsync(FinancialInstitution institution, CancellationToken ct = default)
     {
         await _context.FinancialInstitutions.AddAsync(institution, ct);

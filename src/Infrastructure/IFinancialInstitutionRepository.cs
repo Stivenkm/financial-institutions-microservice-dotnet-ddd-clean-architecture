@@ -10,4 +10,6 @@ public interface IFinancialInstitutionRepository
     Task AddAsync(FinancialInstitution institution, CancellationToken ct = default);
     Task UpdateAsync(FinancialInstitution institution, CancellationToken ct = default);
     Task DeleteAsync(FinancialInstitutionId id, CancellationToken ct = default);
+    Task<List<FinancialInstitution>> GetPagedAsync(int page, int pageSize, CancellationToken ct = default);
+
 }

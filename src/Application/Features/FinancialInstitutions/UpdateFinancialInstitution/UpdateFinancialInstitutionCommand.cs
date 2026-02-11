@@ -1,7 +1,7 @@
 ﻿using Intec.Banking.FinancialInstitutions.Domain.ValueObjects;
 using Intec.Banking.FinancialInstitutions.Primitives;
 
-namespace Intec.Banking.FinanciialInstitutions.Application.Features.FinnacialInstitutions.UpdateFinancialIntituion;
+namespace Intec.Banking.FinancialInstitutions.Application.Features.FinancialInstitutions.UpdateFinancialInstituion;
 
 public record UpdateFinancialInstitutionCommand(
     FinancialInstitutionId Id,
