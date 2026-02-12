@@ -1,8 +1,9 @@
 using Intec.Banking.FinancialInstitutions.Application.Features.FinancialInstitutions.CreateFinancialInstitution;
 using Intec.Banking.FinancialInstitutions.Application.Features.FinancialInstitutions.DeleteFinancialInstitution;
 using Intec.Banking.FinancialInstitutions.Application.Features.FinancialInstitutions.GetFinancialInstitutionById;
-using Intec.Banking.FinancialInstitutions.Application.Features.FinancialInstitutions.UpdateFinancialInstituion;
 using Intec.Banking.FinancialInstitutions.Application.Features.FinancialInstitutions.GetFinancialInstitutions;
+using Intec.Banking.FinancialInstitutions.Application.Features.FinancialInstitutions.SearchFinancialInstitutions;
+using Intec.Banking.FinancialInstitutions.Application.Features.FinancialInstitutions.UpdateFinancialInstituion;
 using Intec.Banking.FinancialInstitutions.Domain.ValueObjects;
 using Intec.Banking.FinancialInstitutions.Primitives;
 using Microsoft.AspNetCore.Mvc;
@@ -32,6 +33,12 @@ public static class FinancialInstitutionEndpoints
         group.MapGet("/", GetFinancialInstitutions)
             .WithName("GetFinancialInstitutions")
             .WithSummary("Get financial institutions paginated")
+            .Produces<List<DTOs.FinancialInstitutionDto>>(StatusCodes.Status200OK)
+            .ProducesValidationProblem();
+
+        group.MapGet("/search", SearchFinancialInstitutions)
+            .WithName("SearchFinancialInstitutions")
+            .WithSummary("Search financial institutions with filters")
             .Produces<List<DTOs.FinancialInstitutionDto>>(StatusCodes.Status200OK)
             .ProducesValidationProblem();
 
@@ -81,6 +88,27 @@ public static class FinancialInstitutionEndpoints
     CancellationToken ct)
     {
         var query = new GetFinancialInstitutionsQuery(page, pageSize);
+
+        var result = await dispatcher.DispatchAsync(query, ct);
+
+        return Results.Ok(result);
+    }
+
+    private static async Task<IResult> SearchFinancialInstitutions(
+    string? country,
+    string? name,
+    string? swiftBicCode,
+    int page,
+    int pageSize,
+    [FromServices] QueryDispatcher dispatcher,
+    CancellationToken ct)
+    {
+        var query = new SearchFinancialInstitutionsQuery(
+            country,
+            name,
+            swiftBicCode,
+            page,
+            pageSize);
 
         var result = await dispatcher.DispatchAsync(query, ct);
 
