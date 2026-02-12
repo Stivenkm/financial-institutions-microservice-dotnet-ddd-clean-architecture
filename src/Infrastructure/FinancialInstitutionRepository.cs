@@ -33,6 +33,46 @@ public class FinancialInstitutionRepository : IFinancialInstitutionRepository
             .Take(pageSize)
             .ToListAsync(ct);
     }
+    public async Task<List<FinancialInstitution>> SearchAsync(string? country, string? name, string? swiftBicCode, int page, int pageSize, CancellationToken ct = default)
+    {
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+
+        var queryable = _context.FinancialInstitutions
+           .AsNoTracking()
+           .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(country))
+        {
+            var countryFilter = country.Trim();
+            queryable = queryable.Where(x =>
+                EF.Functions.ILike(x.Country.Code, countryFilter));
+        }
+
+        if (!string.IsNullOrWhiteSpace(name))
+        {
+            var nameFilter = $"%{name.Trim()}%";
+
+            queryable = queryable.Where(x =>
+                EF.Functions.ILike(x.OfficialName, nameFilter) ||
+                (x.TradeName != null && EF.Functions.ILike(x.TradeName, nameFilter)));
+        }
+
+        if (!string.IsNullOrWhiteSpace(swiftBicCode))
+        {
+            var swiftFilter = swiftBicCode.Trim();
+
+            queryable = queryable.Where(x =>
+                x.SwiftBic != null &&
+                EF.Functions.ILike(x.SwiftBic.Code, swiftFilter));
+        }
+
+        return await queryable
+            .OrderBy(x => x.OfficialName)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(ct);
+    }
 
     public async Task AddAsync(FinancialInstitution institution, CancellationToken ct = default)
     {

@@ -11,5 +11,6 @@ public interface IFinancialInstitutionRepository
     Task UpdateAsync(FinancialInstitution institution, CancellationToken ct = default);
     Task DeleteAsync(FinancialInstitutionId id, CancellationToken ct = default);
     Task<List<FinancialInstitution>> GetPagedAsync(int page, int pageSize, CancellationToken ct = default);
+    Task<List<FinancialInstitution>> SearchAsync(string? country,string? name,string? swiftBicCode, int page, int pageSize, CancellationToken ct = default);
 
 }
