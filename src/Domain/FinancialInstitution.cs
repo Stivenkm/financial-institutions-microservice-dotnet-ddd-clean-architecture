@@ -1,8 +1,10 @@
+using Intec.Banking.FinancialInstitutions.Domain.Events;
 using Intec.Banking.FinancialInstitutions.Domain.ValueObjects;
+using Intec.Banking.FinancialInstitutions.Primitives;
 
 namespace Intec.Banking.FinancialInstitutions.Domain;
 
-public sealed class FinancialInstitution
+public sealed class FinancialInstitution : Aggregate<FinancialInstitutionId>
 {
     private readonly TaxId _taxId;
     private readonly List<LocalBankCode> _localCodes = new();
@@ -56,13 +58,17 @@ public sealed class FinancialInstitution
         if (!country.IsColombia() && swiftBic == null)
             throw new ArgumentException("SWIFT/BIC is required for non-Colombian institutions.");
 
-        return new FinancialInstitution(
+        var institution = new FinancialInstitution(
             FinancialInstitutionId.New(),
             officialName,
             tradeName,
             country,
             taxId,
             swiftBic);
+
+        institution.AddDomainEvent(new FinancialInstitutionCreatedEvent(institution.Id));
+
+        return institution;
     }
 
     public void Update(
@@ -86,11 +92,15 @@ public sealed class FinancialInstitution
         Country = country;
         TaxId = taxId;
         SwiftBic = swiftBic;
+
+        AddDomainEvent(new FinancialInstitutionUpdatedEvent(Id));
     }
     public void AddLocalCode(LocalBankCode code)
     {
         if (_localCodes.Contains(code)) return;
         _localCodes.Add(code);
+
+        AddDomainEvent(new LocalCodeAddedEvent(Id, code.Code));
     }
 
     public void SetColombianDetails(ColombianBankingDetails details)
