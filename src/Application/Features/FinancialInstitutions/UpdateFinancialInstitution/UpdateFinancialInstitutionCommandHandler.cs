@@ -23,28 +23,41 @@ public sealed class UpdateFinancialInstitutionCommandHandler
         UpdateFinancialInstitutionCommand command,
         CancellationToken ct)
     {
-        // 1️ Buscar entidad existente
+        // Buscar entidad existente
         var institution = await _repository.GetByIdAsync(command.Id, ct);
 
         if (institution is null)
             throw new Exception("Financial Institution not found");
 
-        // 2️ Reconstruir ValueObjects
-        var country = CountryCode.Create(command.CountryCode);
-        var taxId = TaxId.Create(command.TaxIdValue, country);
-        var swift = command.SwiftBicCode is not null
-            ? SwiftBic.Create(command.SwiftBicCode)
-            : null;
+        // Construir estado final (DDD correcto: aggregate recibe estado completo)
 
-        // 3️ Aplicar cambios en el Aggregate Root (DDD puro)
+        var finalOfficialName = string.IsNullOrWhiteSpace(command.OfficialName)
+                ? institution.OfficialName
+                : command.OfficialName.Trim();
+
+        var finalTradeName = command.TradeName ?? institution.TradeName;
+
+        var finalCountry = !string.IsNullOrWhiteSpace(command.CountryCode)
+                ? CountryCode.Create(command.CountryCode)
+                : institution.Country;
+
+        var finalTaxId = !string.IsNullOrWhiteSpace(command.TaxIdValue)
+                ? TaxId.Create(command.TaxIdValue, finalCountry)
+                : institution.TaxId;
+
+        var finalSwift =!string.IsNullOrWhiteSpace(command.SwiftBicCode)
+                ? SwiftBic.Create(command.SwiftBicCode)
+                : institution.SwiftBic;
+
+        // Aplicar cambios en el Aggregate Root
         institution.Update(
-            command.OfficialName,
-            command.TradeName,
-            country,
-            taxId,
-            swift);
+            finalOfficialName,
+            finalTradeName,
+            finalCountry,
+            finalTaxId,
+            finalSwift);
 
-        //4️ Persistir cambios
+        // Persistir cambios
         await _repository.UpdateAsync(institution, ct);
         await _unitOfWork.SaveChangesAsync(ct);
 
