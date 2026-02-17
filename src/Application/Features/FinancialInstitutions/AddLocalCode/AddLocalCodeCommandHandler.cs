@@ -4,15 +4,15 @@ using Intec.Banking.FinancialInstitutions.Domain.ValueObjects;
 using Intec.Banking.FinancialInstitutions.Infrastructure;
 using Intec.Banking.FinancialInstitutions.Primitives;
 
-namespace Intec.Banking.FinancialInstitutions.Application.Features.FinancialInstitutions.DeleteFinancialInstitution;
+namespace Intec.Banking.FinancialInstitutions.Application.Features.FinancialInstitutions.AddLocalCode;
 
-public class DeleteFinancialInstitutionCommandHandler
-    : ICommandHandler<DeleteFinancialInstitutionCommand, FinancialInstitutionId>
+public sealed class AddLocalCodeCommandHandler
+    : ICommandHandler<AddLocalCodeCommand, FinancialInstitutionId>
 {
     private readonly IFinancialInstitutionRepository _repository;
     private readonly IUnitOfWork _unitOfWork;
 
-    public DeleteFinancialInstitutionCommandHandler(
+    public AddLocalCodeCommandHandler(
         IFinancialInstitutionRepository repository,
         IUnitOfWork unitOfWork)
     {
@@ -21,19 +21,21 @@ public class DeleteFinancialInstitutionCommandHandler
     }
 
     public async Task<FinancialInstitutionId> HandleAsync(
-        DeleteFinancialInstitutionCommand command,
-        CancellationToken ct = default)
+        AddLocalCodeCommand command,
+        CancellationToken ct)
     {
-
         var institution = await _repository.GetByIdAsync(command.Id, ct);
 
         if (institution is null)
-            throw new NotFoundException(command.Id.Value.ToString(), nameof(FinancialInstitution));
+            throw new NotFoundException(command.Id.Value.ToString(),nameof(FinancialInstitution));
 
-        await _repository.DeleteAsync(command.Id,ct);
+        // Crear LocalBankCode
+        var localCode = LocalBankCode.Create(command.Code, command.CodeType, institution.Country);
+
+        institution.AddLocalCode(localCode);
 
         await _unitOfWork.SaveChangesAsync(ct);
 
-        return command.Id;
+        return institution.Id;
     }
 }
