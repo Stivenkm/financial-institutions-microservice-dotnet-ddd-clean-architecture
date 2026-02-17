@@ -1,3 +1,4 @@
+using Intec.Banking.FinancialInstitutions.Application.Features.FinancialInstitutions.AddLocalCode;
 using Intec.Banking.FinancialInstitutions.Application.Features.FinancialInstitutions.CreateFinancialInstitution;
 using Intec.Banking.FinancialInstitutions.Application.Features.FinancialInstitutions.DeleteFinancialInstitution;
 using Intec.Banking.FinancialInstitutions.Application.Features.FinancialInstitutions.GetFinancialInstitutionById;
@@ -54,6 +55,13 @@ public static class FinancialInstitutionEndpoints
             .WithSummary("Delete an existing financial institution")
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status404NotFound);
+
+        group.MapPost("/{id:guid}/local-codes", AddLocalCode)
+            .WithName("AddLocalCode")
+            .WithSummary("Add Local Code")
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status404NotFound)
+            .ProducesValidationProblem();
 
         return app;
     }
@@ -145,4 +153,23 @@ public static class FinancialInstitutionEndpoints
 
         return Results.NoContent();
     }
+
+    private static async Task<IResult> AddLocalCode(
+        Guid id,
+        [FromBody]AddLocalCodeRequest request,
+        [FromServices] CommandDispatcher dispatcher,
+        CancellationToken ct) 
+        {
+            var command = new AddLocalCodeCommand(
+                new FinancialInstitutionId(id),
+                request.Code,
+                request.CodeType);
+
+            await dispatcher.DispatchAsync(command, ct);
+
+            return Results.NoContent();
+    }
+
+    public sealed record AddLocalCodeRequest(string Code, string CodeType);
+
 }

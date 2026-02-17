@@ -1,7 +1,9 @@
-﻿using Intec.Banking.FinancialInstitutions.Domain.ValueObjects;
+﻿using Ardalis.GuardClauses;
+using Intec.Banking.FinancialInstitutions.Application.Features.FinancialInstitutions.UpdateFinancialInstituion;
+using Intec.Banking.FinancialInstitutions.Domain;
+using Intec.Banking.FinancialInstitutions.Domain.ValueObjects;
 using Intec.Banking.FinancialInstitutions.Infrastructure;
 using Intec.Banking.FinancialInstitutions.Primitives;
-using Intec.Banking.FinancialInstitutions.Application.Features.FinancialInstitutions.UpdateFinancialInstituion;
 
 namespace Intec.Banking.FinancialInstitutions.Application.Features.FinancialInstitutions.UpdateFinancialInstitution;
 
@@ -27,7 +29,7 @@ public sealed class UpdateFinancialInstitutionCommandHandler
         var institution = await _repository.GetByIdAsync(command.Id, ct);
 
         if (institution is null)
-            throw new Exception("Financial Institution not found");
+            throw new NotFoundException(command.Id.Value.ToString(), nameof(FinancialInstitution));
 
         // Construir estado final (DDD correcto: aggregate recibe estado completo)
 
@@ -58,7 +60,6 @@ public sealed class UpdateFinancialInstitutionCommandHandler
             finalSwift);
 
         // Persistir cambios
-        await _repository.UpdateAsync(institution, ct);
         await _unitOfWork.SaveChangesAsync(ct);
 
         return institution.Id;
