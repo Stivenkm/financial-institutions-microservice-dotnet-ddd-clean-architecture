@@ -1,6 +1,8 @@
 namespace Intec.Banking.FinancialInstitutions.Infrastructure.Exceptions;
 
+using Ardalis.GuardClauses;
 using FluentValidation;
+using Intec.Banking.FinancialInstitutions.Primitives;
 using Microsoft.AspNetCore.Diagnostics;
 
 public class GlobalExceptionHandler : IExceptionHandler
@@ -17,7 +19,19 @@ public class GlobalExceptionHandler : IExceptionHandler
         Exception exception,
         CancellationToken cancellationToken)
     {
-        _logger.LogError(exception, "Exception occurred: {Message}", exception.Message);
+
+        if (exception is DomainException)
+        {
+            _logger.LogWarning(exception, exception.Message);
+        }
+        else if (exception is ValidationException)
+        {
+            _logger.LogInformation(exception, exception.Message);
+        }
+        else
+        {
+            _logger.LogError(exception, "Exception occurred: {Message}", exception.Message);
+        }
 
         var (statusCode, title, errors) = exception switch
         {
@@ -31,6 +45,19 @@ public class GlobalExceptionHandler : IExceptionHandler
                         g => g.Select(e => e.ErrorMessage).ToArray()
                     )
             ),
+
+            DomainException domainException => (
+                StatusCodes.Status400BadRequest,
+                domainException.Message,
+                 new Dictionary<string, string[]>()
+            ),
+
+            NotFoundException => (
+                StatusCodes.Status404NotFound,
+                "Resource not found",
+                new Dictionary<string, string[]>()
+            ),
+
             _ => (
                 StatusCodes.Status500InternalServerError,
                 "An error occurred while processing your request",
