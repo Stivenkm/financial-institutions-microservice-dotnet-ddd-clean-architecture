@@ -4,6 +4,7 @@ using Intec.Banking.FinancialInstitutions.Application.Features.FinancialInstitut
 using Intec.Banking.FinancialInstitutions.Application.Features.FinancialInstitutions.GetFinancialInstitutionById;
 using Intec.Banking.FinancialInstitutions.Application.Features.FinancialInstitutions.GetFinancialInstitutions;
 using Intec.Banking.FinancialInstitutions.Application.Features.FinancialInstitutions.SearchFinancialInstitutions;
+using Intec.Banking.FinancialInstitutions.Application.Features.FinancialInstitutions.SetColombianDetails;
 using Intec.Banking.FinancialInstitutions.Application.Features.FinancialInstitutions.UpdateFinancialInstituion;
 using Intec.Banking.FinancialInstitutions.Domain.ValueObjects;
 using Intec.Banking.FinancialInstitutions.Primitives;
@@ -60,6 +61,14 @@ public static class FinancialInstitutionEndpoints
             .WithName("AddLocalCode")
             .WithSummary("Add Local Code")
             .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status404NotFound)
+            .ProducesValidationProblem();
+
+        group.MapPut("/{id:guid}/colombian-details", SetColombianDetails)
+            .WithName("SetColombianDetails")
+            .WithSummary("Set Colombian regulatory details")
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status404NotFound)
             .ProducesValidationProblem();
 
@@ -171,5 +180,22 @@ public static class FinancialInstitutionEndpoints
     }
 
     public sealed record AddLocalCodeRequest(string Code, string CodeType);
+    private static async Task<IResult> SetColombianDetails(
+        Guid id,
+        [FromBody] SetColombianDetailsRequest request,
+        [FromServices] CommandDispatcher dispatcher,
+        CancellationToken ct)
+    {
+        var command = new SetColombianDetailsCommand(
+            new FinancialInstitutionId(id),
+            request.AchCode,
+            request.SuperFinancialCode);
+
+        await dispatcher.DispatchAsync(command, ct);
+
+        return Results.NoContent();
+    }
+
+    public sealed record SetColombianDetailsRequest(string AchCode,string? SuperFinancialCode);
 
 }
