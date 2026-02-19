@@ -1,16 +1,18 @@
-using System.Runtime.InteropServices;
 using dotenv.net;
 using Intec.Banking.FinancialInstitutions;
 using Intec.Banking.FinancialInstitutions.Application.Features.FinancialInstitutions;
 using Intec.Banking.FinancialInstitutions.Infrastructure;
-using Intec.Banking.FinancialInstitutions.Infrastructure.SnowflakeId;
 using Intec.Banking.FinancialInstitutions.Infrastructure.Exceptions;
+using Intec.Banking.FinancialInstitutions.Infrastructure.Seeders;
+using Intec.Banking.FinancialInstitutions.Infrastructure.SnowflakeId;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
 using Serilog;
 using Serilog.Events;
 using Serilog.Sinks.SpectreConsole;
 using Spectre.Console;
+using System.Runtime.InteropServices;
 
 
 DotEnv.Load();
@@ -129,7 +131,18 @@ app.UseExceptionHandler();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<FinancialInstitutionsDbContext>();
-//    await DatabaseSeederRuntime.SeedAsync(db);
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    try
+    {
+        await db.Database.MigrateAsync();
+
+        await DatabaseSeeder.SeedAsync(app.Services, logger);
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Error during database migration or seeding");
+        throw;
+    }
 }
 
 
