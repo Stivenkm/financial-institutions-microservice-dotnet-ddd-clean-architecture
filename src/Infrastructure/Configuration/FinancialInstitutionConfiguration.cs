@@ -72,7 +72,12 @@ public sealed class FinancialInstitutionConfiguration
             localCodes.WithOwner()
                 .HasForeignKey("FinancialInstitutionId");
 
-            localCodes.Property<Guid>("Id");
+            localCodes.Property<Guid>("FinancialInstitutionId")
+                .HasColumnType("uuid"); 
+
+            localCodes.Property<Guid>("Id")
+                .HasColumnType("uuid");
+
             localCodes.HasKey("Id");
 
             localCodes.Property(x => x.Code)
@@ -95,26 +100,39 @@ public sealed class FinancialInstitutionConfiguration
         // -------- Colombian Details --------
         builder.OwnsOne(x => x.ColombianDetails, colombian =>
         {
+            colombian.ToTable("FinancialInstitutionColombianDetails");
+
+            colombian.WithOwner()
+                .HasForeignKey("FinancialInstitutionId");
+
+            colombian.Property<Guid>("FinancialInstitutionId")
+                .HasColumnType("uuid");
+
+            colombian.HasKey("FinancialInstitutionId");
+
             colombian.Property(c => c.SuperFinancialCode)
                 .HasColumnName("SuperFinancialCode")
                 .HasMaxLength(20)
-                .IsRequired();
+                .IsRequired(false);
 
             colombian.OwnsOne(c => c.AchBankCode, ach =>
             {
                 ach.Property(a => a.Code)
                     .HasColumnName("AchCode")
-                    .HasMaxLength(50);
+                    .HasMaxLength(50)
+                    .IsRequired();
 
                 ach.Property(a => a.CodeType)
                     .HasColumnName("AchCodeType")
-                    .HasMaxLength(20);
+                    .HasMaxLength(20)
+                    .IsRequired();
 
                 ach.OwnsOne(a => a.Country, country =>
                 {
                     country.Property(c => c.Code)
                         .HasColumnName("AchCountryCode")
-                        .HasMaxLength(3);
+                        .HasMaxLength(3)
+                        .IsRequired();
                 });
             });
         });
