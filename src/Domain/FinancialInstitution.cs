@@ -95,6 +95,22 @@ public sealed class FinancialInstitution : Aggregate<FinancialInstitutionId>
 
         AddDomainEvent(new FinancialInstitutionUpdatedEvent(Id));
     }
+
+    /// <summary>
+    /// Marks the institution as deleted (soft delete).
+    /// A deleted institution cannot be updated or used in transfers.
+    /// Physical deletion is not allowed — financial records must be preserved
+    /// for regulatory and audit purposes.
+    /// </summary>
+    public void Delete()
+    {
+        if (IsDeleted)
+            throw new InvalidOperationException("Financial institution is already deleted.");
+
+        IsDeleted = true;
+        AddDomainEvent(new FinancialInstitutionDeletedEvent(Id));
+    }
+
     public void AddLocalCode(LocalBankCode code)
     {
         if (_localCodes.Contains(code)) return;

@@ -1,7 +1,7 @@
-using System.Runtime.CompilerServices;
 using FluentValidation;
 using Intec.Banking.FinancialInstitutions.Infrastructure;
 using Intec.Banking.FinancialInstitutions.Infrastructure.Filters;
+using Intec.Banking.FinancialInstitutions.Infrastructure.Interceptors;
 using Intec.Banking.FinancialInstitutions.Infrastructure.SnowflakeId;
 using Intec.Banking.FinancialInstitutions.Primitives;
 using Microsoft.EntityFrameworkCore;
@@ -12,10 +12,19 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
+        
+        services.AddScoped<ICurrentUserService, CurrentUserService>();
+
+        // Interceptors
+        services.AddScoped<AuditInterceptor>();
+
         // Database Context
-        services.AddDbContext<FinancialInstitutionsDbContext>(options =>
+        services.AddDbContext<FinancialInstitutionsDbContext>((serviceProvider, options) =>
+        {
+            var interceptor = serviceProvider.GetRequiredService<AuditInterceptor>();
             options.UseNpgsql(configuration.GetConnectionString("Default"))
-        );
+                   .AddInterceptors(interceptor);
+        });
 
         // Configure IdGenerator (Snowflake)
         var workerId = configuration.GetValue<ushort>("IdGenerator:WorkerId");
