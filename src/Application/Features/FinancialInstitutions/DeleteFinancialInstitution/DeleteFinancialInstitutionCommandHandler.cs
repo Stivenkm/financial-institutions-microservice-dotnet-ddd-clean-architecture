@@ -30,7 +30,8 @@ public class DeleteFinancialInstitutionCommandHandler
         if (institution is null)
             throw new NotFoundException(command.Id.Value.ToString(), nameof(FinancialInstitution));
 
-        await _repository.DeleteAsync(command.Id,ct);
+        // Dominio marca como eliminado — dispara FinancialInstitutionDeletedEvent
+        institution.Delete();
 
         await _unitOfWork.SaveChangesAsync(ct);
 
