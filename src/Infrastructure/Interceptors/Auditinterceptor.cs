@@ -47,24 +47,29 @@ public sealed class AuditInterceptor : SaveChangesInterceptor
         foreach (var entry in context.ChangeTracker.Entries<IAggregate>())
         {
 
+            var aggregate = entry.Entity;
+
             switch (entry.State)
             {
                 case EntityState.Added:
-                    entry.Entity.SetCreated(now, currentUserId);
+                    aggregate.SetCreated(now, currentUserId);
                     break;
 
                 case EntityState.Modified:
-
-                    if (entry.Entity is IHaveSoftDelete sd && sd.IsDeleted && sd.Deleted is null)
-                    {
-                        entry.Entity.SetDeleted(now, currentUserId);
-                    }
+                    if (aggregate is IHaveSoftDelete { IsDeleted: true, Deleted: null })
+                        aggregate.SetDeleted(now, currentUserId);
                     else
-                    {
-                        entry.Entity.SetLastModified(now, currentUserId);
-                    }
+                        aggregate.SetLastModified(now, currentUserId);
+
+                    aggregate.IncrementVersion();
                     break;
-                }
+
+                case EntityState.Deleted:
+                    entry.State = EntityState.Modified;
+                    aggregate.SetDeleted(now, currentUserId);
+                    aggregate.IncrementVersion();
+                    break;
             }
         }
+    }
 }

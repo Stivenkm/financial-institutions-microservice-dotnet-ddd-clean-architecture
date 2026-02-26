@@ -4,6 +4,7 @@ using Intec.Banking.FinancialInstitutions.Domain;
 using Intec.Banking.FinancialInstitutions.Domain.ValueObjects;
 using Intec.Banking.FinancialInstitutions.Infrastructure;
 using Intec.Banking.FinancialInstitutions.Primitives;
+using Microsoft.EntityFrameworkCore;
 
 namespace Intec.Banking.FinancialInstitutions.Application.Features.FinancialInstitutions.UpdateFinancialInstitution;
 
@@ -31,33 +32,35 @@ public sealed class UpdateFinancialInstitutionCommandHandler
         if (institution is null)
             throw new NotFoundException(command.Id.Value.ToString(), nameof(FinancialInstitution));
 
-        // Construir estado final (DDD correcto: aggregate recibe estado completo)
+        // Optimistic concurrency — verify version matches what the client read
+        // If versions differ, another user already modified this institution
+        if (command.OriginalVersion.HasValue && institution.OriginalVersion != command.OriginalVersion.Value)
+            throw new DbUpdateConcurrencyException(
+                $"The institution was modified by another user. " +
+                $"Expected version {command.OriginalVersion.Value}, current version {institution.OriginalVersion}.");
 
-        var finalOfficialName = string.IsNullOrWhiteSpace(command.OfficialName)
-                ? institution.OfficialName
-                : command.OfficialName.Trim();
+        // Build Value Objects — domain validates all business rules
+        var country = CountryCode.Create(command.CountryCode);
 
-        var finalTradeName = command.TradeName ?? institution.TradeName;
+        var taxId = TaxId.Create(command.TaxIdValue, country);
 
-        var finalCountry = !string.IsNullOrWhiteSpace(command.CountryCode)
-                ? CountryCode.Create(command.CountryCode)
-                : institution.Country;
+        var swift = command.SwiftBicCode switch
+        {
+            null => null,
+            "" => institution.SwiftBic,
+            _ => SwiftBic.Create(command.SwiftBicCode)
+        };
 
-        var finalTaxId = !string.IsNullOrWhiteSpace(command.TaxIdValue)
-                ? TaxId.Create(command.TaxIdValue, finalCountry)
-                : institution.TaxId;
-
-        var finalSwift =!string.IsNullOrWhiteSpace(command.SwiftBicCode)
-                ? SwiftBic.Create(command.SwiftBicCode)
-                : institution.SwiftBic;
-
-        // Aplicar cambios en el Aggregate Root
+        // Apply changes via Aggregate Root — domain validates all invariants:
+        // - OfficialName cannot be empty
+        // - TaxId country must match institution country
+        // - SWIFT required for non-Colombian institutions
         institution.Update(
-            finalOfficialName,
-            finalTradeName,
-            finalCountry,
-            finalTaxId,
-            finalSwift);
+            officialName: command.OfficialName,
+            tradeName: command.TradeName,
+            country: country,
+            taxId: taxId,
+            swiftBic: swift);
 
         // Persistir cambios
         await _unitOfWork.SaveChangesAsync(ct);

@@ -16,6 +16,7 @@ public sealed class FinancialInstitutionConfiguration
         ConfigureBasicProperties(builder);
         ConfigureAudit(builder);
         ConfigureSoftDelete(builder);
+        ConfigureVersion(builder);
         ConfigureCountry(builder);
         ConfigureTaxId(builder);
         ConfigureSwiftBic(builder);
@@ -97,6 +98,22 @@ public sealed class FinancialInstitutionConfiguration
         // Global query filter — deleted institutions are invisible to all queries
         // Use IgnoreQueryFilters() explicitly when needed (admin, audit)
         builder.HasQueryFilter(x => !x.IsDeleted);
+    }
+
+    // ────────────────────────────────────────────────────────────
+    // OPTIMISTIC CONCURRENCY — IHaveAggregateVersion
+    // OriginalVersion is the concurrency token.
+    // EF generates: UPDATE ... WHERE Id = ? AND "Version" = ?
+    // If no rows affected → DbUpdateConcurrencyException → 409 Conflict
+    // ────────────────────────────────────────────────────────────
+
+    private static void ConfigureVersion(EntityTypeBuilder<FinancialInstitution> builder)
+    {
+        builder.Property(x => x.OriginalVersion)
+            .HasColumnName("Version")
+            .IsRequired()
+            .HasDefaultValue(0L)
+            .IsConcurrencyToken();
     }
 
     // ────────────────────────────────────────────────────────────
