@@ -4,4 +4,5 @@ public record FinancialInstitutionDto(
     Guid Id,
     string OfficialName,
     string? TradeName,
-    string Country);
+    string Country,
+    long Version);

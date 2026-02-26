@@ -30,7 +30,8 @@ public class GetFinancialInstitutionsQueryHandler
                 x.Id.Value,
                 x.OfficialName,
                 x.TradeName,
-                x.Country.ToString()
+                x.Country.ToString(),
+                x.OriginalVersion
             )).ToList();
     }
 }

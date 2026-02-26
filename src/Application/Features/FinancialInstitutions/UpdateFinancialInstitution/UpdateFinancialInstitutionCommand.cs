@@ -9,5 +9,6 @@ public record UpdateFinancialInstitutionCommand(
     string? TradeName,
     string CountryCode,
     string TaxIdValue,
-    string? SwiftBicCode
+    string? SwiftBicCode,
+    long? OriginalVersion
 ) : ICommand<FinancialInstitutionId>;

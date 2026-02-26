@@ -4,6 +4,7 @@ using Ardalis.GuardClauses;
 using FluentValidation;
 using Intec.Banking.FinancialInstitutions.Primitives;
 using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.EntityFrameworkCore;
 
 public class GlobalExceptionHandler : IExceptionHandler
 {
@@ -20,18 +21,17 @@ public class GlobalExceptionHandler : IExceptionHandler
         CancellationToken cancellationToken)
     {
 
-        if (exception is DomainException)
-        {
+        if (exception is DomainException or ArgumentException)
             _logger.LogWarning(exception, exception.Message);
-        }
+
         else if (exception is ValidationException)
-        {
             _logger.LogInformation(exception, exception.Message);
-        }
+
+        else if (exception is DbUpdateConcurrencyException)
+            _logger.LogWarning(exception, "Concurrency conflict: {Message}", exception.Message);
+        
         else
-        {
             _logger.LogError(exception, "Exception occurred: {Message}", exception.Message);
-        }
 
         var (statusCode, title, errors) = exception switch
         {
@@ -52,9 +52,23 @@ public class GlobalExceptionHandler : IExceptionHandler
                  new Dictionary<string, string[]>()
             ),
 
+            // Domain validation errors thrown as ArgumentException
+            ArgumentException argumentException => (
+                StatusCodes.Status400BadRequest,
+                argumentException.Message,
+                new Dictionary<string, string[]>()
+            ),
+
             NotFoundException => (
                 StatusCodes.Status404NotFound,
                 "Resource not found",
+                new Dictionary<string, string[]>()
+            ),
+
+            // Optimistic concurrency conflict
+            DbUpdateConcurrencyException concurrencyException => (
+                StatusCodes.Status409Conflict,
+                concurrencyException.Message,
                 new Dictionary<string, string[]>()
             ),
 

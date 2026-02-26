@@ -27,7 +27,8 @@ public class GetFinancialInstitutionByIdQueryHandler
             institution.Id.Value,
             institution.OfficialName,
             institution.TradeName,
-            institution.Country.ToString()
+            institution.Country.ToString(),
+            institution.OriginalVersion
         );
     }
 }

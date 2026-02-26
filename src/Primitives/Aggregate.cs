@@ -29,8 +29,19 @@ public class Aggregate<TId> : Entity<TId>, IAggregate<TId>, IHaveDomainEvents, I
     public int? DeletedBy { get; set; }
 
     // ────────────────────────────────────────────────────────────
+    // IHaveAggregateVersion — optimistic concurrency
+    // OriginalVersion: valor leído de la BD, usado en WHERE del UPDATE
+    // Version: valor actual, se incrementa en cada SaveChanges
+    // ────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// The version read from the store. Used by EF Core as concurrency token.
+    /// EF generates: UPDATE ... WHERE Id = ? AND Version = OriginalVersion
+    /// </summary>
+    public long OriginalVersion { get; private set; }
+
+    // ────────────────────────────────────────────────────────────
     // AUDIT SETTERS — called by SaveChangesInterceptor
-    // Not exposed publicly to keep domain clean
     // ────────────────────────────────────────────────────────────
 
     public void SetCreated(DateTime createdAt, int? createdBy)
@@ -50,6 +61,11 @@ public class Aggregate<TId> : Entity<TId>, IAggregate<TId>, IHaveDomainEvents, I
         IsDeleted = true;
         Deleted = deletedAt;
         DeletedBy = deletedBy;
+    }
+
+    public void IncrementVersion()
+    {
+        OriginalVersion++;
     }
 
     // ────────────────────────────────────────────────────────────
