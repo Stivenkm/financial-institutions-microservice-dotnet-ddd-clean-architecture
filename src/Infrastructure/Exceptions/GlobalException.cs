@@ -79,6 +79,13 @@ public class GlobalExceptionHandler : IExceptionHandler
                 new Dictionary<string, string[]>()
             ),
 
+            // Missing or invalid X-Tenant-Id header
+            UnauthorizedAccessException unauthorizedException => (
+                StatusCodes.Status401Unauthorized,
+                unauthorizedException.Message,
+                new Dictionary<string, string[]>()
+            ),
+
             _ => (
                 StatusCodes.Status500InternalServerError,
                 "An error occurred while processing your request",

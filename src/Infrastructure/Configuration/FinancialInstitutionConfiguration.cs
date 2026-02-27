@@ -17,6 +17,7 @@ public sealed class FinancialInstitutionConfiguration
         ConfigureAudit(builder);
         ConfigureSoftDelete(builder);
         ConfigureVersion(builder);
+        ConfigureTenant(builder);
         ConfigureCountry(builder);
         ConfigureTaxId(builder);
         ConfigureSwiftBic(builder);
@@ -114,6 +115,24 @@ public sealed class FinancialInstitutionConfiguration
             .IsRequired()
             .HasDefaultValue(0L)
             .IsConcurrencyToken();
+    }
+
+    // ────────────────────────────────────────────────────────────
+    // MULTI-TENANCY — IHaveTenant
+    // Global query filter ensures tenant isolation on every query.
+    // EF generates: WHERE TenantId = ? AND IsDeleted = false
+    // Use IgnoreQueryFilters() explicitly for cross-tenant admin operations.
+    // ────────────────────────────────────────────────────────────
+
+    private static void ConfigureTenant(EntityTypeBuilder<FinancialInstitution> builder)
+    {
+        builder.Property(x => x.TenantId)
+            .IsRequired()
+            .HasColumnName("TenantId");
+
+        // Index for query performance — every query filters by TenantId
+        builder.HasIndex(x => x.TenantId)
+            .HasDatabaseName("IX_FinancialInstitutions_TenantId");
     }
 
     // ────────────────────────────────────────────────────────────

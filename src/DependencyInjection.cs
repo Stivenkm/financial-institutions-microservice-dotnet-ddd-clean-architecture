@@ -2,6 +2,7 @@ using FluentValidation;
 using Intec.Banking.FinancialInstitutions.Infrastructure;
 using Intec.Banking.FinancialInstitutions.Infrastructure.Filters;
 using Intec.Banking.FinancialInstitutions.Infrastructure.Interceptors;
+using Intec.Banking.FinancialInstitutions.Infrastructure.Services;
 using Intec.Banking.FinancialInstitutions.Infrastructure.SnowflakeId;
 using Intec.Banking.FinancialInstitutions.Primitives;
 using Microsoft.EntityFrameworkCore;
@@ -12,7 +13,11 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
-        
+        // HttpContextAccessor — required by TenantService
+        services.AddHttpContextAccessor();
+
+        // Services
+        services.AddScoped<ITenantService, TenantService>();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
 
         // Interceptors

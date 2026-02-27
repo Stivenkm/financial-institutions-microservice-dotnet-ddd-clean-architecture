@@ -41,6 +41,13 @@ public class Aggregate<TId> : Entity<TId>, IAggregate<TId>, IHaveDomainEvents, I
     public long OriginalVersion { get; private set; }
 
     // ────────────────────────────────────────────────────────────
+    // IHaveTenant — multi-tenancy
+    // ────────────────────────────────────────────────────────────
+
+    public Guid TenantId { get; private set; }
+
+
+    // ────────────────────────────────────────────────────────────
     // AUDIT SETTERS — called by SaveChangesInterceptor
     // ────────────────────────────────────────────────────────────
 
@@ -66,6 +73,11 @@ public class Aggregate<TId> : Entity<TId>, IAggregate<TId>, IHaveDomainEvents, I
     public void IncrementVersion()
     {
         OriginalVersion++;
+    }
+
+    public void SetTenant(Guid tenantId)
+    {
+        TenantId = tenantId;
     }
 
     // ────────────────────────────────────────────────────────────
@@ -122,7 +134,7 @@ public class Aggregate<TId> : Entity<TId>, IAggregate<TId>, IHaveDomainEvents, I
     {
         if (rule.IsBroken())
         {
-        //    throw new BusinessRuleValidationException(rule);
+            throw new BusinessRuleValidationException(rule);
         }
     }
 }
