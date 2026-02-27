@@ -5,4 +5,4 @@ public record FinancialInstitutionDto(
     string OfficialName,
     string? TradeName,
     string Country,
-    long Version);
+    long OriginalVersion);
