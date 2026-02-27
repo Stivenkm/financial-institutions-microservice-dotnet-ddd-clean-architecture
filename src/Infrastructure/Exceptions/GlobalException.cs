@@ -21,7 +21,7 @@ public class GlobalExceptionHandler : IExceptionHandler
         CancellationToken cancellationToken)
     {
 
-        if (exception is DomainException or ArgumentException)
+        if (exception is DomainException or ArgumentException or BadHttpRequestException)
             _logger.LogWarning(exception, exception.Message);
 
         else if (exception is ValidationException)
@@ -62,6 +62,13 @@ public class GlobalExceptionHandler : IExceptionHandler
             NotFoundException => (
                 StatusCodes.Status404NotFound,
                 "Resource not found",
+                new Dictionary<string, string[]>()
+            ),
+
+            // Missing or invalid query string / route parameters
+            BadHttpRequestException badHttpRequestException => (
+                StatusCodes.Status400BadRequest,
+                badHttpRequestException.Message,
                 new Dictionary<string, string[]>()
             ),
 

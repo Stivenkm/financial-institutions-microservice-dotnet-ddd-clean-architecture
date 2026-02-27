@@ -27,5 +27,9 @@ public sealed class UpdateFinancialInstitutionValidator : AbstractValidator<Upda
 
         RuleFor(x => x.SwiftBicCode)
             .MaximumLength(11);
+
+        RuleFor(x => x.OriginalVersion)
+            .GreaterThanOrEqualTo(0)
+            .When(x => x.OriginalVersion.HasValue);
     }
 }

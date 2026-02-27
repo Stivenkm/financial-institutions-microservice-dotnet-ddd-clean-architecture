@@ -7,6 +7,7 @@ using Intec.Banking.FinancialInstitutions.Application.Features.FinancialInstitut
 using Intec.Banking.FinancialInstitutions.Application.Features.FinancialInstitutions.SetColombianDetails;
 using Intec.Banking.FinancialInstitutions.Application.Features.FinancialInstitutions.UpdateFinancialInstituion;
 using Intec.Banking.FinancialInstitutions.Domain.ValueObjects;
+using Intec.Banking.FinancialInstitutions.Infrastructure.Filters;
 using Intec.Banking.FinancialInstitutions.Primitives;
 using Microsoft.AspNetCore.Mvc;
 
@@ -18,7 +19,8 @@ public static class FinancialInstitutionEndpoints
     {
         var group = app.MapGroup("/api/financial-institutions")
             .WithTags("Financial Institutions")
-            .WithOpenApi();
+            .WithOpenApi()
+            .AddEndpointFilter<ValidationFilter>();
 
         group.MapPost("/", CreateFinancialInstitution)
             .WithName("CreateFinancialInstitution")
