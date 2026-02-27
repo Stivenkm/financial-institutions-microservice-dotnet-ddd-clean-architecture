@@ -1,23 +1,30 @@
-﻿using Intec.Banking.FinancialInstitutions.Primitives;
+﻿using Intec.Banking.FinancialInstitutions.Infrastructure.Services;
+using Intec.Banking.FinancialInstitutions.Primitives;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace Intec.Banking.FinancialInstitutions.Infrastructure.Interceptors;
 
 /// <summary>
-/// Interceptor that automatically populates audit fields (CreatedAt, LastModified)
-/// and handles soft delete (IsDeleted, Deleted, DeletedBy) on every SaveChanges.
+/// Interceptor that automatically handles:
+/// - Audit fields (CreatedAt, UpdatedAt) via IHaveAudit
+/// - Soft delete (IsDeleted, DeletedAt) via IHaveSoftDelete
+/// - Optimistic concurrency (Version++) via IHaveAggregateVersion
+/// - Multi-tenancy (TenantId) via IHaveTenant
 ///
-/// This keeps audit concerns out of the domain and application layers —
-/// the Aggregate Root exposes internal setters that only this interceptor calls.
+/// Runs on every SaveChanges — domain and application layers remain unaware.
 /// </summary>
 public sealed class AuditInterceptor : SaveChangesInterceptor
 {
     private readonly ICurrentUserService _currentUserService;
 
-    public AuditInterceptor(ICurrentUserService currentUserService)
+    private readonly ITenantService _tenantService;
+
+    public AuditInterceptor(ICurrentUserService currentUserService,ITenantService tenantService)
     {
         _currentUserService = currentUserService;
+
+        _tenantService = tenantService;
     }
     public override InterceptionResult<int> SavingChanges(
         DbContextEventData eventData,
@@ -44,15 +51,15 @@ public sealed class AuditInterceptor : SaveChangesInterceptor
 
         var currentUserId = _currentUserService.UserId;
 
-        foreach (var entry in context.ChangeTracker.Entries<IAggregate>())
+        foreach (var entry in context.ChangeTracker.Entries())
         {
-
-            var aggregate = entry.Entity;
+            if (entry.Entity is not IAggregate aggregate) continue;
 
             switch (entry.State)
             {
                 case EntityState.Added:
                     aggregate.SetCreated(now, currentUserId);
+                    aggregate.SetTenant(_tenantService.GetRequiredTenantId());
                     break;
 
                 case EntityState.Modified:

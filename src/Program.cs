@@ -3,6 +3,7 @@ using Intec.Banking.FinancialInstitutions;
 using Intec.Banking.FinancialInstitutions.Application.Features.FinancialInstitutions;
 using Intec.Banking.FinancialInstitutions.Infrastructure;
 using Intec.Banking.FinancialInstitutions.Infrastructure.Exceptions;
+using Intec.Banking.FinancialInstitutions.Infrastructure.Middleware;
 using Intec.Banking.FinancialInstitutions.Infrastructure.Seeders;
 using Intec.Banking.FinancialInstitutions.Infrastructure.SnowflakeId;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
@@ -128,6 +129,11 @@ var app = builder.Build();
 
 // Exception handling middleware
 app.UseExceptionHandler();
+
+// Validates X-Tenant-Id header on every request
+// Must be after UseExceptionHandler so 401 responses are formatted correctly
+app.UseMiddleware<TenantValidationMiddleware>();
+
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<FinancialInstitutionsDbContext>();

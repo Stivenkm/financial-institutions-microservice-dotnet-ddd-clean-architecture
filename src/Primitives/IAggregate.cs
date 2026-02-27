@@ -7,6 +7,8 @@ public interface IAggregate
     void SetCreated(DateTime createdAt, int? createdBy);
     void SetLastModified(DateTime modifiedAt, int? modifiedBy);
     void SetDeleted(DateTime deletedAt, int? deletedBy);
+
+    void SetTenant(Guid tenantId);
     void IncrementVersion();
 }
 
