@@ -181,7 +181,6 @@ public static class FinancialInstitutionEndpoints
             return Results.NoContent();
     }
 
-    public sealed record AddLocalCodeRequest(string Code, string CodeType);
     private static async Task<IResult> SetColombianDetails(
         Guid id,
         [FromBody] SetColombianDetailsRequest request,
@@ -197,7 +196,4 @@ public static class FinancialInstitutionEndpoints
 
         return Results.NoContent();
     }
-
-    public sealed record SetColombianDetailsRequest(string AchCode,string? SuperFinancialCode);
-
 }
