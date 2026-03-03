@@ -29,18 +29,10 @@ internal sealed class SetColombianDetailsCommandHandler
         if (institution is null)
             throw new NotFoundException(command.Id.Value.ToString(), nameof(FinancialInstitution));
 
-        // Validamos primero el AGGREGATE
-        if (!institution.Country.IsColombia())
-            throw new DomainException(
-                "Colombian details only allowed for Colombian institutions.");
-
-        var achBankCode = LocalBankCode.Create(
-            command.AchCode,
-            "ACH",
-            institution.Country);
-
+        var achBankCode = LocalBankCode.Create(command.AchCode, "ACH", institution.Country);
         var details = ColombianBankingDetails.Create(achBankCode, command.SuperFinancialCode);
 
+        // Domain enforces the Colombia invariant — InvalidOperationException surfaces via GlobalExceptionHandler
         institution.SetColombianDetails(details);
 
         await _unitOfWork.SaveChangesAsync(ct);
@@ -48,4 +40,3 @@ internal sealed class SetColombianDetailsCommandHandler
         return institution.Id;
     }
 }
-

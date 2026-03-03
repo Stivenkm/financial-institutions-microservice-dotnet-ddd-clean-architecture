@@ -29,7 +29,6 @@ public sealed class AddLocalCodeCommandHandler
         if (institution is null)
             throw new NotFoundException(command.Id.Value.ToString(),nameof(FinancialInstitution));
 
-        // Crear LocalBankCode
         var localCode = LocalBankCode.Create(command.Code, command.CodeType, institution.Country);
 
         institution.AddLocalCode(localCode);

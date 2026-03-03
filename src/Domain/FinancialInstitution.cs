@@ -122,7 +122,7 @@ public sealed class FinancialInstitution : Aggregate<FinancialInstitutionId>
         if (!Country.IsColombia())
             throw new InvalidOperationException("Colombian details only allowed for Colombian institutions.");
         ColombianDetails = details;
-        AddLocalCode(details.AchBankCode);
+        //AddLocalCode(details.AchBankCode);
     }
 
     public bool CanReceiveInternationalTransfer()
