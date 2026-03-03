@@ -154,10 +154,7 @@ public static class FinancialInstitutionEndpoints
     [FromServices] CommandDispatcher dispatcher,
     CancellationToken ct)
     {
-        var command = new DeleteFinancialInstitutionCommand
-        {
-            Id = FinancialInstitutionId.From(id)
-        };
+        var command = new DeleteFinancialInstitutionCommand(FinancialInstitutionId.From(id));
 
         await dispatcher.DispatchAsync(command, ct);
 

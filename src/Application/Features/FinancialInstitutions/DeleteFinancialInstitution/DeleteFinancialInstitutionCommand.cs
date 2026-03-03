@@ -2,7 +2,4 @@
 using Intec.Banking.FinancialInstitutions.Primitives;
 
 namespace Intec.Banking.FinancialInstitutions.Application.Features.FinancialInstitutions.DeleteFinancialInstitution;
-public sealed record DeleteFinancialInstitutionCommand : ICommand<FinancialInstitutionId>
-{
-    public FinancialInstitutionId Id { get; set; } = default!;
-}
+public sealed record DeleteFinancialInstitutionCommand(FinancialInstitutionId Id) : ICommand<FinancialInstitutionId>;
