@@ -31,10 +31,10 @@ public static class DependencyInjection
                    .AddInterceptors(interceptor);
         });
 
-        // Configure IdGenerator (Snowflake)
+        // Snowflake ID Generator
         var workerId = configuration.GetValue<ushort>("IdGenerator:WorkerId");
         var datacenterId = configuration.GetValue<ushort>("IdGenerator:DatacenterId");
-
+        
         var idGeneratorOptions = new IdGeneratorOptions
         {
             WorkerId = workerId,
@@ -48,34 +48,20 @@ public static class DependencyInjection
         services.AddScoped<IFinancialInstitutionRepository, FinancialInstitutionRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
-
         // CQRS Dispatchers
         services.AddScoped<CommandDispatcher>();
         services.AddScoped<QueryDispatcher>();
 
-        // Register all Command Handlers
+        // Command and Query Handlers — auto-registered via reflection
         RegisterHandlers(services, typeof(ICommandHandler<,>));
-
-        // Register all Query Handlers
         RegisterHandlers(services, typeof(IQueryHandler<,>));
 
-        // FluentValidation - Register all validators from assembly
-        // services.AddValidatorsFromAssemblyContaining<>(ServiceLifetime.Scoped);
-
-        // FluentValidation
+        // FluentValidation — scans all validators in this assembly
         services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly);
 
-        // Filters
+        // Endpoint Filters
         services.AddScoped<ValidationFilter>();
 
-        // Database Seeder
-        /*
-        if (app.Environment.IsDevelopment())
-        {
-            DatabaseSeeder.SeedData(configuration); 
-        }
-
-        */
         return services;
     }
 
@@ -90,8 +76,7 @@ public static class DependencyInjection
             .ToList();
 
         foreach (var handler in handlers)
-        {
             services.AddScoped(handler.Interface, handler.Type);
-        }
     }
+
 }
