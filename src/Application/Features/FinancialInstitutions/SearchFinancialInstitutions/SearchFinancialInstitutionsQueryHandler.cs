@@ -17,8 +17,6 @@ public class SearchFinancialInstitutionsQueryHandler
         SearchFinancialInstitutionsQuery query,
         CancellationToken ct = default)
     {
-        var page = Math.Max(1, query.Page);
-        var pageSize = Math.Clamp(query.PageSize, 1, 100);
 
         var institutions = await _repository.SearchAsync(
             query.Country,

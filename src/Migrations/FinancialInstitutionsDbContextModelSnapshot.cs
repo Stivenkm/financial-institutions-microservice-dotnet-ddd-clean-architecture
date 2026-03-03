@@ -27,6 +27,12 @@ namespace Intec.Banking.FinancialInstitutions.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("Country")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("CountryCode");
+
                     b.Property<DateTime>("Created")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("CreatedAt");
@@ -68,6 +74,11 @@ namespace Intec.Banking.FinancialInstitutions.Migrations
                         .HasDefaultValue(0L)
                         .HasColumnName("Version");
 
+                    b.Property<string>("SwiftBic")
+                        .HasMaxLength(11)
+                        .HasColumnType("character varying(11)")
+                        .HasColumnName("SwiftBic");
+
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid")
                         .HasColumnName("TenantId");
@@ -78,6 +89,10 @@ namespace Intec.Banking.FinancialInstitutions.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("SwiftBic")
+                        .IsUnique()
+                        .HasDatabaseName("UX_FinancialInstitutions_SwiftBic");
+
                     b.HasIndex("TenantId")
                         .HasDatabaseName("IX_FinancialInstitutions_TenantId");
 
@@ -86,25 +101,6 @@ namespace Intec.Banking.FinancialInstitutions.Migrations
 
             modelBuilder.Entity("Intec.Banking.FinancialInstitutions.Domain.FinancialInstitution", b =>
                 {
-                    b.OwnsOne("Intec.Banking.FinancialInstitutions.Domain.ValueObjects.CountryCode", "Country", b1 =>
-                        {
-                            b1.Property<Guid>("FinancialInstitutionId")
-                                .HasColumnType("uuid");
-
-                            b1.Property<string>("Code")
-                                .IsRequired()
-                                .HasMaxLength(3)
-                                .HasColumnType("character varying(3)")
-                                .HasColumnName("CountryCode");
-
-                            b1.HasKey("FinancialInstitutionId");
-
-                            b1.ToTable("FinancialInstitutions");
-
-                            b1.WithOwner()
-                                .HasForeignKey("FinancialInstitutionId");
-                        });
-
                     b.OwnsMany("Intec.Banking.FinancialInstitutions.Domain.ValueObjects.LocalBankCode", "LocalCodes", b1 =>
                         {
                             b1.Property<Guid>("Id")
@@ -121,6 +117,12 @@ namespace Intec.Banking.FinancialInstitutions.Migrations
                                 .HasMaxLength(20)
                                 .HasColumnType("character varying(20)");
 
+                            b1.Property<string>("Country")
+                                .IsRequired()
+                                .HasMaxLength(3)
+                                .HasColumnType("character varying(3)")
+                                .HasColumnName("CountryCode");
+
                             b1.Property<Guid>("FinancialInstitutionId")
                                 .HasColumnType("uuid");
 
@@ -132,28 +134,6 @@ namespace Intec.Banking.FinancialInstitutions.Migrations
 
                             b1.WithOwner()
                                 .HasForeignKey("FinancialInstitutionId");
-
-                            b1.OwnsOne("Intec.Banking.FinancialInstitutions.Domain.ValueObjects.CountryCode", "Country", b2 =>
-                                {
-                                    b2.Property<Guid>("LocalBankCodeId")
-                                        .HasColumnType("uuid");
-
-                                    b2.Property<string>("Code")
-                                        .IsRequired()
-                                        .HasMaxLength(3)
-                                        .HasColumnType("character varying(3)")
-                                        .HasColumnName("CountryCode");
-
-                                    b2.HasKey("LocalBankCodeId");
-
-                                    b2.ToTable("FinancialInstitutionLocalCodes");
-
-                                    b2.WithOwner()
-                                        .HasForeignKey("LocalBankCodeId");
-                                });
-
-                            b1.Navigation("Country")
-                                .IsRequired();
                         });
 
                     b.OwnsOne("Intec.Banking.FinancialInstitutions.Domain.ValueObjects.ColombianBankingDetails", "ColombianDetails", b1 =>
@@ -190,63 +170,34 @@ namespace Intec.Banking.FinancialInstitutions.Migrations
                                         .HasColumnType("character varying(20)")
                                         .HasColumnName("AchCodeType");
 
+                                    b2.Property<string>("Country")
+                                        .IsRequired()
+                                        .HasMaxLength(3)
+                                        .HasColumnType("character varying(3)")
+                                        .HasColumnName("AchCountryCode");
+
                                     b2.HasKey("ColombianBankingDetailsFinancialInstitutionId");
 
                                     b2.ToTable("FinancialInstitutionColombianDetails");
 
                                     b2.WithOwner()
                                         .HasForeignKey("ColombianBankingDetailsFinancialInstitutionId");
-
-                                    b2.OwnsOne("Intec.Banking.FinancialInstitutions.Domain.ValueObjects.CountryCode", "Country", b3 =>
-                                        {
-                                            b3.Property<Guid>("LocalBankCodeColombianBankingDetailsFinancialInstitutionId")
-                                                .HasColumnType("uuid");
-
-                                            b3.Property<string>("Code")
-                                                .IsRequired()
-                                                .HasMaxLength(3)
-                                                .HasColumnType("character varying(3)")
-                                                .HasColumnName("AchCountryCode");
-
-                                            b3.HasKey("LocalBankCodeColombianBankingDetailsFinancialInstitutionId");
-
-                                            b3.ToTable("FinancialInstitutionColombianDetails");
-
-                                            b3.WithOwner()
-                                                .HasForeignKey("LocalBankCodeColombianBankingDetailsFinancialInstitutionId");
-                                        });
-
-                                    b2.Navigation("Country")
-                                        .IsRequired();
                                 });
 
                             b1.Navigation("AchBankCode")
                                 .IsRequired();
                         });
 
-                    b.OwnsOne("Intec.Banking.FinancialInstitutions.Domain.ValueObjects.SwiftBic", "SwiftBic", b1 =>
-                        {
-                            b1.Property<Guid>("FinancialInstitutionId")
-                                .HasColumnType("uuid");
-
-                            b1.Property<string>("Code")
-                                .IsRequired()
-                                .HasMaxLength(11)
-                                .HasColumnType("character varying(11)")
-                                .HasColumnName("SwiftBic");
-
-                            b1.HasKey("FinancialInstitutionId");
-
-                            b1.ToTable("FinancialInstitutions");
-
-                            b1.WithOwner()
-                                .HasForeignKey("FinancialInstitutionId");
-                        });
-
                     b.OwnsOne("Intec.Banking.FinancialInstitutions.Domain.ValueObjects.TaxId", "TaxId", b1 =>
                         {
                             b1.Property<Guid>("FinancialInstitutionId")
                                 .HasColumnType("uuid");
+
+                            b1.Property<string>("Country")
+                                .IsRequired()
+                                .HasMaxLength(3)
+                                .HasColumnType("character varying(3)")
+                                .HasColumnName("TaxIdCountryCode");
 
                             b1.Property<string>("Value")
                                 .IsRequired()
@@ -256,42 +207,19 @@ namespace Intec.Banking.FinancialInstitutions.Migrations
 
                             b1.HasKey("FinancialInstitutionId");
 
+                            b1.HasIndex("Value", "Country")
+                                .IsUnique()
+                                .HasDatabaseName("UX_FinancialInstitutions_TaxId");
+
                             b1.ToTable("FinancialInstitutions");
 
                             b1.WithOwner()
                                 .HasForeignKey("FinancialInstitutionId");
-
-                            b1.OwnsOne("Intec.Banking.FinancialInstitutions.Domain.ValueObjects.CountryCode", "Country", b2 =>
-                                {
-                                    b2.Property<Guid>("TaxIdFinancialInstitutionId")
-                                        .HasColumnType("uuid");
-
-                                    b2.Property<string>("Code")
-                                        .IsRequired()
-                                        .HasMaxLength(3)
-                                        .HasColumnType("character varying(3)")
-                                        .HasColumnName("TaxIdCountryCode");
-
-                                    b2.HasKey("TaxIdFinancialInstitutionId");
-
-                                    b2.ToTable("FinancialInstitutions");
-
-                                    b2.WithOwner()
-                                        .HasForeignKey("TaxIdFinancialInstitutionId");
-                                });
-
-                            b1.Navigation("Country")
-                                .IsRequired();
                         });
 
                     b.Navigation("ColombianDetails");
 
-                    b.Navigation("Country")
-                        .IsRequired();
-
                     b.Navigation("LocalCodes");
-
-                    b.Navigation("SwiftBic");
 
                     b.Navigation("TaxId")
                         .IsRequired();

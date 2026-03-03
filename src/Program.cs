@@ -61,7 +61,7 @@ void DisplayEnvironmentVariablesTable()
     var environmentVariables = Environment.GetEnvironmentVariables();
     foreach (var key in environmentVariables.Keys)
     {
-        table.AddRow(key.ToString(), environmentVariables[key]?.ToString() ?? "null");
+        table.AddRow(key!.ToString()!, environmentVariables[key]?.ToString() ?? string.Empty);
     }
 
     AnsiConsole.Write(table);

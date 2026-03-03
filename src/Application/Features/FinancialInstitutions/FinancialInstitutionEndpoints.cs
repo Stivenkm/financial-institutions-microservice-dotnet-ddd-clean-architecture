@@ -19,7 +19,6 @@ public static class FinancialInstitutionEndpoints
     {
         var group = app.MapGroup("/api/financial-institutions")
             .WithTags("Financial Institutions")
-            .WithOpenApi()
             .AddEndpointFilter<ValidationFilter>();
 
         group.MapPost("/", CreateFinancialInstitution)

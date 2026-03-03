@@ -4,8 +4,8 @@ namespace Intec.Banking.FinancialInstitutions.Domain.ValueObjects;
 
 public sealed class TaxId : ValueObject
 {
-    public string Value { get; }
-    public CountryCode Country { get; }
+    public string Value { get; } = null!;
+    public CountryCode Country { get; } = null!;
 
     private TaxId() { }
 

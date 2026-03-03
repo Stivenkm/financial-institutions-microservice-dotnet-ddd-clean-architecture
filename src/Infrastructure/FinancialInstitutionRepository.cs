@@ -33,26 +33,24 @@ public class FinancialInstitutionRepository : IFinancialInstitutionRepository
             .Take(pageSize)
             .ToListAsync(ct);
     }
-    public async Task<List<FinancialInstitution>> SearchAsync(string? country, string? name, string? swiftBicCode, int page, int pageSize, CancellationToken ct = default)
-    {
-        page = Math.Max(1, page);
-        pageSize = Math.Clamp(pageSize, 1, 100);
 
+    public async Task<List<FinancialInstitution>> SearchAsync(string? country, string? name, string? swiftBicCode,int page, int pageSize, CancellationToken ct = default)
+    {
         var queryable = _context.FinancialInstitutions
-           .AsNoTracking()
-           .AsQueryable();
+            .AsNoTracking()
+            .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(country))
         {
-            var countryFilter = country.Trim();
-            queryable = queryable.Where(x =>
-                EF.Functions.ILike(x.Country.Code, countryFilter));
+            // HasConversion: pass the ValueObject — EF applies the converter correctly.
+            // Comparing string directly causes InvalidCastException on parameter binding.
+            var countryCode = CountryCode.Create(country.Trim().ToUpperInvariant());
+            queryable = queryable.Where(x => x.Country == countryCode);
         }
 
         if (!string.IsNullOrWhiteSpace(name))
         {
             var nameFilter = $"%{name.Trim()}%";
-
             queryable = queryable.Where(x =>
                 EF.Functions.ILike(x.OfficialName, nameFilter) ||
                 (x.TradeName != null && EF.Functions.ILike(x.TradeName, nameFilter)));
@@ -60,11 +58,10 @@ public class FinancialInstitutionRepository : IFinancialInstitutionRepository
 
         if (!string.IsNullOrWhiteSpace(swiftBicCode))
         {
-            var swiftFilter = swiftBicCode.Trim();
-
-            queryable = queryable.Where(x =>
-                x.SwiftBic != null &&
-                EF.Functions.ILike(x.SwiftBic.Code, swiftFilter));
+            // HasConversion: pass the ValueObject — EF applies the converter correctly.
+            // Comparing string directly causes InvalidCastException on parameter binding.
+            var swift = SwiftBic.Create(swiftBicCode.Trim().ToUpperInvariant());
+            queryable = queryable.Where(x => x.SwiftBic == swift);
         }
 
         return await queryable
@@ -89,8 +86,6 @@ public class FinancialInstitutionRepository : IFinancialInstitutionRepository
     {
         var institution = await GetByIdAsync(id, ct);
         if (institution != null)
-        {
             _context.FinancialInstitutions.Remove(institution);
-        }
     }
 }

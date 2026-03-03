@@ -4,9 +4,9 @@ namespace Intec.Banking.FinancialInstitutions.Domain.ValueObjects;
 
 public sealed class LocalBankCode : ValueObject
 {
-    public string Code { get; }
-    public string CodeType { get; }
-    public CountryCode Country { get; }
+    public string Code { get; } = null!;
+    public string CodeType { get; } = null!;
+    public CountryCode Country { get; } = null!;
     private LocalBankCode() { }
 
     private LocalBankCode(string code, string codeType, CountryCode country)
