@@ -113,16 +113,16 @@ public static class FinancialInstitutionEndpoints
     }
 
     private static async Task<IResult> SearchFinancialInstitutions(
-    string? country,
-    string? name,
-    string? swiftBicCode,
-    int page,
-    int pageSize,
+    [FromQuery] string? countryCode,
+    [FromQuery] string? name,
+    [FromQuery] string? swiftBicCode,
+    [FromQuery] int page,
+    [FromQuery] int pageSize,
     [FromServices] QueryDispatcher dispatcher,
     CancellationToken ct)
     {
         var query = new SearchFinancialInstitutionsQuery(
-            country,
+            countryCode,
             name,
             swiftBicCode,
             page,
