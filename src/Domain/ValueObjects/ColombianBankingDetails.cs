@@ -4,7 +4,7 @@ namespace Intec.Banking.FinancialInstitutions.Domain.ValueObjects;
 
 public sealed class ColombianBankingDetails : ValueObject
 {
-    public LocalBankCode AchBankCode { get; }
+    public LocalBankCode AchBankCode { get; } = null!;
     public string? SuperFinancialCode { get; }
     private ColombianBankingDetails() { }
 

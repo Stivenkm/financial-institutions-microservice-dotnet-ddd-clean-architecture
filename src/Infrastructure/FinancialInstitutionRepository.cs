@@ -13,16 +13,33 @@ public class FinancialInstitutionRepository : IFinancialInstitutionRepository
         _context = context;
     }
 
+    // ????????????????????????????????????????????????????????????
+    // READ — WRITE (tracking, full aggregate)
+    // LocalCodes is in a separate table (ToTable) — EF Core does not
+    // auto-load it. Include is required so AddLocalCode can check
+    // duplicates via _localCodes.Contains(code).
+    // ColombianDetails is assigned, never read — no Include needed.
+    // ????????????????????????????????????????????????????????????
+
     public async Task<FinancialInstitution?> GetByIdAsync(FinancialInstitutionId id, CancellationToken ct = default)
     {
         return await _context.FinancialInstitutions
+            .Include(x => x.LocalCodes)
             .FirstOrDefaultAsync(x => x.Id == id, ct);
     }
 
     public async Task<List<FinancialInstitution>> GetAllAsync(CancellationToken ct = default)
     {
-        return await _context.FinancialInstitutions.ToListAsync(ct);
+        return await _context.FinancialInstitutions
+            .Include(x => x.LocalCodes)
+            .ToListAsync(ct);
     }
+
+    // ????????????????????????????????????????????????????????????
+    // READ — QUERY (AsNoTracking, projection to DTO)
+    // DTO maps only scalar properties — LocalCodes and ColombianDetails
+    // are not projected, so Include is unnecessary overhead.
+    // ????????????????????????????????????????????????????????????
 
     public async Task<List<FinancialInstitution>> GetPagedAsync(int page, int pageSize, CancellationToken ct = default)
     {
@@ -33,26 +50,30 @@ public class FinancialInstitutionRepository : IFinancialInstitutionRepository
             .Take(pageSize)
             .ToListAsync(ct);
     }
-    public async Task<List<FinancialInstitution>> SearchAsync(string? country, string? name, string? swiftBicCode, int page, int pageSize, CancellationToken ct = default)
-    {
-        page = Math.Max(1, page);
-        pageSize = Math.Clamp(pageSize, 1, 100);
 
+    public async Task<List<FinancialInstitution>> SearchAsync(
+        string? country,
+        string? name,
+        string? swiftBicCode,
+        int page,
+        int pageSize,
+        CancellationToken ct = default)
+    {
         var queryable = _context.FinancialInstitutions
-           .AsNoTracking()
-           .AsQueryable();
+            .AsNoTracking()
+            .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(country))
         {
-            var countryFilter = country.Trim();
-            queryable = queryable.Where(x =>
-                EF.Functions.ILike(x.Country.Code, countryFilter));
+            // HasConversion: pass the ValueObject — EF applies the converter correctly.
+            // Comparing string directly causes InvalidCastException on parameter binding.
+            var countryCode = CountryCode.Create(country.Trim().ToUpperInvariant());
+            queryable = queryable.Where(x => x.Country == countryCode);
         }
 
         if (!string.IsNullOrWhiteSpace(name))
         {
             var nameFilter = $"%{name.Trim()}%";
-
             queryable = queryable.Where(x =>
                 EF.Functions.ILike(x.OfficialName, nameFilter) ||
                 (x.TradeName != null && EF.Functions.ILike(x.TradeName, nameFilter)));
@@ -60,11 +81,10 @@ public class FinancialInstitutionRepository : IFinancialInstitutionRepository
 
         if (!string.IsNullOrWhiteSpace(swiftBicCode))
         {
-            var swiftFilter = swiftBicCode.Trim();
-
-            queryable = queryable.Where(x =>
-                x.SwiftBic != null &&
-                EF.Functions.ILike(x.SwiftBic.Code, swiftFilter));
+            // HasConversion: pass the ValueObject — EF applies the converter correctly.
+            // Comparing string directly causes InvalidCastException on parameter binding.
+            var swift = SwiftBic.Create(swiftBicCode.Trim().ToUpperInvariant());
+            queryable = queryable.Where(x => x.SwiftBic == swift);
         }
 
         return await queryable
@@ -73,6 +93,10 @@ public class FinancialInstitutionRepository : IFinancialInstitutionRepository
             .Take(pageSize)
             .ToListAsync(ct);
     }
+
+    // ????????????????????????????????????????????????????????????
+    // WRITE
+    // ????????????????????????????????????????????????????????????
 
     public async Task AddAsync(FinancialInstitution institution, CancellationToken ct = default)
     {
@@ -88,9 +112,7 @@ public class FinancialInstitutionRepository : IFinancialInstitutionRepository
     public async Task DeleteAsync(FinancialInstitutionId id, CancellationToken ct = default)
     {
         var institution = await GetByIdAsync(id, ct);
-        if (institution != null)
-        {
+        if (institution is not null)
             _context.FinancialInstitutions.Remove(institution);
-        }
     }
 }

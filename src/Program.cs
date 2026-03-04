@@ -19,19 +19,19 @@ using System.Runtime.InteropServices;
 DotEnv.Load();
 
 
-var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")?? "Development";
+var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Development";
 var builder = WebApplication.CreateBuilder(args);
-var configuration=builder.Configuration
-    .AddJsonFile("appsettings.json",optional:false,reloadOnChange:true)
+var configuration = builder.Configuration
+    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
     .AddEnvironmentVariables().Build();
-var applicationName=configuration.GetValue<string>("APP_NAME");
+var applicationName = configuration.GetValue<string>("APP_NAME");
 var kestrelPort = configuration.GetValue<int>("KESTREL_PORT");
 
-DisplayHeader(environment,applicationName!,kestrelPort.ToString());
+DisplayHeader(environment, applicationName!, kestrelPort.ToString());
 DisplaySystemInfo();
 DisplayEnvironmentVariablesTable();
 ConfigureKestrel(builder, kestrelPort);
-void DisplayHeader(string environmentName,string appName,string kPort)
+void DisplayHeader(string environmentName, string appName, string kPort)
 {
     AnsiConsole.Write(
         new FigletText(appName)
@@ -39,7 +39,7 @@ void DisplayHeader(string environmentName,string appName,string kPort)
             .Color(Color.Green));
     AnsiConsole.WriteLine();
     AnsiConsole.Write(new Markup($"[bold yellow]Environment:[/] [yellow]{environmentName}[/]"));
-    
+
     AnsiConsole.WriteLine();
 }
 void DisplayRule(string? ruleTitle, string body, bool endRule = true, bool success = true)
@@ -54,6 +54,8 @@ void DisplayRule(string? ruleTitle, string body, bool endRule = true, bool succe
 }
 void DisplayEnvironmentVariablesTable()
 {
+    var sensitiveKeys = new[] { "password", "secret", "key", "token", "connectionstring", "pwd" };
+
     var table = new Table();
     table.AddColumn("Key");
     table.AddColumn("Value");
@@ -61,7 +63,12 @@ void DisplayEnvironmentVariablesTable()
     var environmentVariables = Environment.GetEnvironmentVariables();
     foreach (var key in environmentVariables.Keys)
     {
-        table.AddRow(key.ToString(), environmentVariables[key]?.ToString() ?? "null");
+        var keyStr = key!.ToString()!;
+        var value = sensitiveKeys.Any(s => keyStr.Contains(s, StringComparison.OrdinalIgnoreCase))
+            ? "***"
+            : environmentVariables[key]?.ToString() ?? string.Empty;
+
+        table.AddRow(keyStr, value);
     }
 
     AnsiConsole.Write(table);
@@ -70,7 +77,6 @@ void DisplaySystemInfo()
 {
     var os = RuntimeInformation.OSDescription;
     var timeZone = TimeZoneInfo.Local;
-    //var currentTime = TimeUtil.ConvertUtcToTimeZone(DateTime.UtcNow, "America/Bogota");
 
     var table = new Table();
     table.AddColumn("System Info");
@@ -87,11 +93,11 @@ void ConfigureKestrel(WebApplicationBuilder contextBuilder, int kestrelPort)
 
     contextBuilder.WebHost.ConfigureKestrel(options =>
     {
-        
+
         options.ListenAnyIP(kestrelPort, listenOptions =>
         {
             listenOptions.Protocols = HttpProtocols.Http2 | HttpProtocols.Http1;
-            
+
         });
     });
 
@@ -122,9 +128,6 @@ Log.Logger = new LoggerConfiguration()
 
 builder.Host.UseSerilog();
 
-
-Log.Information("Hello, {Name}!", Environment.UserName);
-
 var app = builder.Build();
 
 // Exception handling middleware
@@ -154,14 +157,12 @@ using (var scope = app.Services.CreateScope())
 
 app.MapOpenApi();
 
-//if (app.Environment.IsDevelopment())
-//{
+if (app.Environment.IsDevelopment())
+{
     app.MapScalarApiReference();
-//}
-//app.UseHttpsRedirection();
+}
 
 // Map Financial Institution Endpoints
 app.MapFinancialInstitutionEndpoints();
 
 app.Run();
-

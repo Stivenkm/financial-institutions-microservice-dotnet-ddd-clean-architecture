@@ -19,7 +19,6 @@ public static class FinancialInstitutionEndpoints
     {
         var group = app.MapGroup("/api/financial-institutions")
             .WithTags("Financial Institutions")
-            .WithOpenApi()
             .AddEndpointFilter<ValidationFilter>();
 
         group.MapPost("/", CreateFinancialInstitution)
@@ -114,16 +113,16 @@ public static class FinancialInstitutionEndpoints
     }
 
     private static async Task<IResult> SearchFinancialInstitutions(
-    string? country,
-    string? name,
-    string? swiftBicCode,
-    int page,
-    int pageSize,
+    [FromQuery] string? countryCode,
+    [FromQuery] string? name,
+    [FromQuery] string? swiftBicCode,
+    [FromQuery] int page,
+    [FromQuery] int pageSize,
     [FromServices] QueryDispatcher dispatcher,
     CancellationToken ct)
     {
         var query = new SearchFinancialInstitutionsQuery(
-            country,
+            countryCode,
             name,
             swiftBicCode,
             page,
@@ -155,10 +154,7 @@ public static class FinancialInstitutionEndpoints
     [FromServices] CommandDispatcher dispatcher,
     CancellationToken ct)
     {
-        var command = new DeleteFinancialInstitutionCommand
-        {
-            Id = FinancialInstitutionId.From(id)
-        };
+        var command = new DeleteFinancialInstitutionCommand(FinancialInstitutionId.From(id));
 
         await dispatcher.DispatchAsync(command, ct);
 
@@ -181,7 +177,6 @@ public static class FinancialInstitutionEndpoints
             return Results.NoContent();
     }
 
-    public sealed record AddLocalCodeRequest(string Code, string CodeType);
     private static async Task<IResult> SetColombianDetails(
         Guid id,
         [FromBody] SetColombianDetailsRequest request,
@@ -197,7 +192,4 @@ public static class FinancialInstitutionEndpoints
 
         return Results.NoContent();
     }
-
-    public sealed record SetColombianDetailsRequest(string AchCode,string? SuperFinancialCode);
-
 }

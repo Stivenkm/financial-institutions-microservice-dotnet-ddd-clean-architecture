@@ -1,75 +1,80 @@
 ﻿using Intec.Banking.FinancialInstitutions.Domain;
 using Intec.Banking.FinancialInstitutions.Domain.ValueObjects;
-using Intec.Banking.FinancialInstitutions.Infrastructure;
+using Intec.Banking.FinancialInstitutions.Infrastructure.Interceptors;
+using Intec.Banking.FinancialInstitutions.Infrastructure.Services;
+using Intec.Banking.FinancialInstitutions.Primitives;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Intec.Banking.FinancialInstitutions.Infrastructure.Seeders;
 
 /// <summary>
-/// Siembra datos de prueba para el ambiente de desarrollo.
+/// Seeds reference data for development environment.
 ///
-/// ESTRATEGIA DE PERSISTENCIA:
-/// Las instituciones financieras se construyen íntegramente a través del
-/// Aggregate Root, respetando todas las reglas de negocio y Value Objects
-/// del dominio. La persistencia se realiza en dos fases:
+/// TENANT STRATEGY:
+/// Seed data belongs to a fixed system tenant (SystemTenantId).
+/// The seeder creates its own DbContext with a SeederTenantService
+/// that provides the system TenantId without requiring HTTP context.
+/// This bypasses the DI-registered TenantService which requires HttpContext.
 ///
-/// Fase 1 — Instituciones + LocalCodes via EF (dominio completo)
-/// Fase 2 — ColombianDetails via SQL directo
+/// PERSISTENCE STRATEGY:
+/// Phase 1 — Institutions + LocalCodes via EF (full domain validation)
+/// Phase 2 — ColombianDetails via raw SQL (EF Core 9 bug workaround)
 ///
-/// WORKAROUND — Bug EF Core 9 (Npgsql 9.0.3):
-/// EF Core 9 tiene un bug en el NavigationFixer que lanza
-/// IndexOutOfRangeException al persistir un OwnsOne en tabla separada
-/// cuando el Aggregate owner usa value conversion en su PK y el owned type
-/// contiene owned types anidados (AchBankCode dentro de ColombianDetails).
-/// El dominio sigue siendo la fuente de verdad — las entidades se construyen
-/// y validan completamente antes de persistir. Solo la persistencia de
-/// ColombianDetails usa SQL como workaround temporal.
-/// Issue: https://github.com/dotnet/efcore/issues
-/// Eliminar workaround cuando se corrija en EF Core 9.x
+/// WORKAROUND — EF Core 9 Bug (Npgsql 9.0.3):
+/// NavigationFixer throws IndexOutOfRangeException when persisting OwnsOne
+/// in a separate table when the owner uses value conversion on PK and the
+/// owned type contains nested owned types (AchBankCode inside ColombianDetails).
+/// Remove when EF Core fixes the bug.
 /// </summary>
 public static class DatabaseSeeder
 {
+    /// <summary>
+    /// Fixed system tenant for seed data.
+    /// Exposed as a constant so integration tests can use the same tenant.
+    /// </summary>
+    public static readonly Guid SystemTenantId = new("00000000-0000-0000-0000-000000000001");
+
     public static async Task SeedAsync(IServiceProvider serviceProvider, ILogger? logger = null)
     {
-        await using var checkScope = serviceProvider.CreateAsyncScope();
-        var checkDb = checkScope.ServiceProvider.GetRequiredService<FinancialInstitutionsDbContext>();
+        var configuration = serviceProvider.GetRequiredService<IConfiguration>();
+        var connectionString = configuration.GetConnectionString("Default")!;
 
-        if (await checkDb.FinancialInstitutions.AnyAsync())
+        // Check if already seeded — use IgnoreQueryFilters to check across all tenants
+        // The standard DbContext uses HasQueryFilter so AnyAsync() would always
+        // return false without a valid tenant — IgnoreQueryFilters bypasses this
+        await using var checkDb = CreateSeederDbContext(connectionString);
+        if (await checkDb.FinancialInstitutions.IgnoreQueryFilters().AnyAsync())
         {
             logger?.LogInformation("Database already seeded. Skipping.");
             return;
         }
 
-        logger?.LogInformation("Seeding financial institutions...");
+        logger?.LogInformation("Seeding financial institutions with SystemTenantId: {TenantId}", SystemTenantId);
 
-        // Construir todas las instituciones via dominio — valida reglas de negocio
         var (colombianInstitutions, colombianDetails) = BuildColombianInstitutions();
         var internationalInstitutions = BuildInternationalInstitutions();
 
-        // ── FASE 1: Persistir instituciones colombianas (sin ColombianDetails) ──
-        // Scope limpio por Aggregate para evitar conflictos del change tracker
+        // ── PHASE 1: Persist Colombian institutions (without ColombianDetails) ──
+        // Separate DbContext per aggregate to avoid change tracker conflicts
         foreach (var institution in colombianInstitutions)
         {
-            await using var scope = serviceProvider.CreateAsyncScope();
-            var db = scope.ServiceProvider.GetRequiredService<FinancialInstitutionsDbContext>();
+            await using var db = CreateSeederDbContext(connectionString);
             db.FinancialInstitutions.Add(institution);
             await db.SaveChangesAsync();
             logger?.LogDebug("Seeded: [{Country}] {Name}", institution.Country.Code, institution.OfficialName);
         }
 
-        // ── FASE 2: Persistir ColombianDetails via SQL (workaround bug EF Core 9) ──
-        // Los datos fueron construidos y validados por el dominio en BuildColombianInstitutions
-        await using var detailsScope = serviceProvider.CreateAsyncScope();
-        var detailsDb = detailsScope.ServiceProvider.GetRequiredService<FinancialInstitutionsDbContext>();
+        // ── PHASE 2: Persist ColombianDetails via raw SQL (EF Core 9 workaround) ──
+        await using var detailsDb = CreateSeederDbContext(connectionString);
         await PersistColombianDetailsAsync(detailsDb, colombianDetails, logger);
 
-        // ── FASE 3: Persistir bancos internacionales (no tienen ColombianDetails) ──
+        // ── PHASE 3: Persist international institutions ──
         foreach (var institution in internationalInstitutions)
         {
-            await using var scope = serviceProvider.CreateAsyncScope();
-            var db = scope.ServiceProvider.GetRequiredService<FinancialInstitutionsDbContext>();
+            await using var db = CreateSeederDbContext(connectionString);
             db.FinancialInstitutions.Add(institution);
             await db.SaveChangesAsync();
             logger?.LogDebug("Seeded: [{Country}] {Name}", institution.Country.Code, institution.OfficialName);
@@ -80,23 +85,29 @@ public static class DatabaseSeeder
     }
 
     // ────────────────────────────────────────────────────────────────────────────
-    // CONSTRUCCIÓN DEL DOMINIO
-    // Cada institución se construye respetando el Aggregate Root y sus invariantes
+    // SEEDER DB CONTEXT
+    // Creates a DbContext with SeederTenantService — no HttpContext required.
+    // AuditInterceptor uses SystemTenantId for all seeded records.
     // ────────────────────────────────────────────────────────────────────────────
 
-    /// <summary>
-    /// Construye bancos colombianos usando el Aggregate Root completo.
-    /// Retorna las instituciones y sus ColombianDetails separados para
-    /// persistirlos en dos fases debido al bug de EF Core 9.
-    ///
-    /// Reglas del dominio que se validan durante la construcción:
-    /// - TaxId.Create     → país del TaxId debe coincidir con país de la institución
-    /// - SwiftBic.Create  → formato SWIFT/BIC válido (8 u 11 caracteres)
-    /// - CreateBank       → SWIFT es obligatorio para bancos no colombianos
-    /// - CreateAchCode    → tipo de código debe ser ACH y país debe ser Colombia
-    /// - ColombianBankingDetails.Create → AchBankCode obligatorio, SuperCode opcional
-    /// - SetColombianDetails → solo bancos colombianos pueden tener ColombianDetails
-    /// </summary>
+    private static FinancialInstitutionsDbContext CreateSeederDbContext(string connectionString)
+    {
+        var tenantService = new SeederTenantService(SystemTenantId);
+        var currentUserService = new SeederCurrentUserService();
+        var interceptor = new AuditInterceptor(currentUserService, tenantService);
+
+        var options = new DbContextOptionsBuilder<FinancialInstitutionsDbContext>()
+            .UseNpgsql(connectionString)
+            .AddInterceptors(interceptor)
+            .Options;
+
+        return new FinancialInstitutionsDbContext(options, tenantService);
+    }
+
+    // ────────────────────────────────────────────────────────────────────────────
+    // DOMAIN CONSTRUCTION
+    // ────────────────────────────────────────────────────────────────────────────
+
     private static (List<FinancialInstitution> Institutions, List<ColombianDetailsSeed> Details)
         BuildColombianInstitutions()
     {
@@ -112,7 +123,6 @@ public static class DatabaseSeeder
             string achCode,
             string? superFinancialCode)
         {
-            // Aggregate Root — valida todas las reglas de negocio
             var institution = FinancialInstitution.CreateBank(
                 officialName: officialName,
                 tradeName: tradeName,
@@ -120,14 +130,8 @@ public static class DatabaseSeeder
                 taxId: TaxId.Create(taxId, colombia),
                 swiftBic: swiftBic is not null ? SwiftBic.Create(swiftBic) : null);
 
-            // El dominio dicta que SetColombianDetails agrega el AchBankCode
-            // también como LocalCode del Aggregate (ver FinancialInstitution.SetColombianDetails).
-            // Como el workaround del bug de EF9 impide llamar SetColombianDetails,
-            // replicamos ese comportamiento explícitamente aquí.
-            institution.AddLocalCode(
-                LocalBankCode.CreateAchCode(achCode, colombia));
+            institution.AddLocalCode(LocalBankCode.CreateAchCode(achCode, colombia));
 
-            // Registrar ColombianDetails para persistir en Fase 2 via SQL
             details.Add(new ColombianDetailsSeed(
                 InstitutionId: institution.Id.Value,
                 AchCode: achCode,
@@ -136,33 +140,17 @@ public static class DatabaseSeeder
             institutions.Add(institution);
         }
 
-        // Bancos con SWIFT (operación internacional + local)
         Add("Bancolombia S.A.", "Bancolombia", "890903938-8", "COLOCOBM", "007", "007");
         Add("Banco de Bogotá S.A.", "Banco de Bogotá", "860002964-4", "BBOGCOBB", "001", "001");
         Add("Banco Davivienda S.A.", "Davivienda", "860034313-7", "CAFICOBB", "051", "051");
         Add("BBVA Colombia S.A.", "BBVA", "860003020-1", "BBVACOBB", "013", "013");
-
-        // Bancos sin SWIFT (solo operación local)
-        // Dominio permite SWIFT null para bancos colombianos
         Add("Banco Popular S.A.", "Banco Popular", "860007738-2", null, "002", "002");
         Add("Banco Agrario de Colombia S.A.", "Banco Agrario", "800037800-8", null, "040", "040");
-
-        // Fintech — sin SWIFT y sin código Superfinanciera
-        // Valida que SuperFinancialCode es nullable en ColombianBankingDetails
         Add("Nequi S.A.S.", "Nequi", "900200960-1", null, "507", null);
 
         return (institutions, details);
     }
 
-    /// <summary>
-    /// Construye bancos internacionales usando el Aggregate Root.
-    ///
-    /// Reglas del dominio que se validan durante la construcción:
-    /// - CreateBank          → SWIFT obligatorio para bancos no colombianos
-    /// - SwiftBic.Create     → formato SWIFT/BIC válido
-    /// - CreateRoutingNumber → tipo de código debe ser ROUTING
-    /// - AddLocalCode        → agrega el routing number como LocalBankCode del Aggregate
-    /// </summary>
     private static List<FinancialInstitution> BuildInternationalInstitutions()
     {
         var us = CountryCode.UnitedStates;
@@ -181,36 +169,23 @@ public static class DatabaseSeeder
                 taxId: TaxId.Create(taxId, us),
                 swiftBic: SwiftBic.Create(swiftBic));
 
-            // Aggregate method — valida y agrega routing number como LocalBankCode
-            institution.AddLocalCode(
-                LocalBankCode.CreateRoutingNumber(routingNumber, us));
+            institution.AddLocalCode(LocalBankCode.CreateRoutingNumber(routingNumber, us));
 
             return institution;
         }
 
-        return new List<FinancialInstitution>
-        {
+        return
+        [
             Create("JPMorgan Chase Bank, N.A.", "Chase",           "13-4994650", "CHASUS33", "021000021"),
             Create("Bank of America, N.A.",     "Bank of America", "56-0906609", "BOFAUS3N", "026009593"),
             Create("Citibank, N.A.",            "Citi",            "13-5266470", "CITIUS33", "021000089"),
-        };
+        ];
     }
 
     // ────────────────────────────────────────────────────────────────────────────
-    // PERSISTENCIA — WORKAROUND EF CORE 9
+    // PERSISTENCE — EF CORE 9 WORKAROUND
     // ────────────────────────────────────────────────────────────────────────────
 
-    /// <summary>
-    /// Persiste ColombianDetails via SQL directo.
-    ///
-    /// WORKAROUND: EF Core 9 tiene un bug en el NavigationFixer que impide
-    /// persistir OwnsOne en tabla separada cuando el owner usa value conversion
-    /// en su PK y el owned type tiene owned types anidados.
-    ///
-    /// Los datos aquí son los mismos que el dominio construyó y validó en
-    /// BuildColombianInstitutions — el SQL solo los persiste, no los inventa.
-    /// Eliminar cuando EF Core corrija el bug.
-    /// </summary>
     private static async Task PersistColombianDetailsAsync(
         FinancialInstitutionsDbContext db,
         List<ColombianDetailsSeed> details,
@@ -239,15 +214,27 @@ public static class DatabaseSeeder
         }
     }
 
-    // ────────────────────────────────────────────────────────────────────────────
-    // SEED DATA RECORD
-    // ────────────────────────────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Datos de ColombianDetails validados por el dominio, listos para persistir.
-    /// </summary>
     private sealed record ColombianDetailsSeed(
         Guid InstitutionId,
         string AchCode,
         string? SuperFinancialCode);
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// SEEDER SERVICES
+// Minimal implementations for seeding — no HTTP context required.
+// Internal — only used by DatabaseSeeder.
+// ────────────────────────────────────────────────────────────────────────────
+
+internal sealed class SeederTenantService : ITenantService
+{
+    private readonly Guid _tenantId;
+    public SeederTenantService(Guid tenantId) => _tenantId = tenantId;
+    public Guid? TenantId => _tenantId;
+    public Guid GetRequiredTenantId() => _tenantId;
+}
+
+internal sealed class SeederCurrentUserService : ICurrentUserService
+{
+    public int? UserId => 1; // System operation — no user
 }

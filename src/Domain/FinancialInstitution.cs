@@ -6,13 +6,13 @@ namespace Intec.Banking.FinancialInstitutions.Domain;
 
 public sealed class FinancialInstitution : Aggregate<FinancialInstitutionId>
 {
-    private readonly TaxId _taxId;
     private readonly List<LocalBankCode> _localCodes = new();
 
-    public FinancialInstitutionId Id { get; }
-    public string OfficialName { get; private set; }
+    public new FinancialInstitutionId Id { get; } = null!;
+    public string OfficialName { get; private set; } = null!;
     public string? TradeName { get; private set; }
-    public CountryCode Country { get; private set; }
+    public CountryCode Country { get; private set; } = null!;
+    public TaxId TaxId { get; private set; } = null!;       // private set — domain controls mutation
     public SwiftBic? SwiftBic { get; private set; }
 
     public IReadOnlyCollection<LocalBankCode> LocalCodes => _localCodes.AsReadOnly();
@@ -31,7 +31,6 @@ public sealed class FinancialInstitution : Aggregate<FinancialInstitutionId>
     {
         if (string.IsNullOrWhiteSpace(officialName))
             throw new ArgumentException("Official name cannot be empty.");
-        _taxId = taxId;
 
         Id = id;
         OfficialName = officialName.Trim();
@@ -46,7 +45,6 @@ public sealed class FinancialInstitution : Aggregate<FinancialInstitutionId>
         }
     }
 
-    public TaxId TaxId { get; set; }
 
     public static FinancialInstitution CreateBank(
         string officialName,
@@ -124,7 +122,7 @@ public sealed class FinancialInstitution : Aggregate<FinancialInstitutionId>
         if (!Country.IsColombia())
             throw new InvalidOperationException("Colombian details only allowed for Colombian institutions.");
         ColombianDetails = details;
-        AddLocalCode(details.AchBankCode);
+        //AddLocalCode(details.AchBankCode);
     }
 
     public bool CanReceiveInternationalTransfer()

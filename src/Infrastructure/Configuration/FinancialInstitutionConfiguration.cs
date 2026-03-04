@@ -18,6 +18,7 @@ public sealed class FinancialInstitutionConfiguration
         ConfigureSoftDelete(builder);
         ConfigureVersion(builder);
         ConfigureTenant(builder);
+        ConfigureIndexes(builder);
         ConfigureCountry(builder);
         ConfigureTaxId(builder);
         ConfigureSwiftBic(builder);
@@ -79,7 +80,8 @@ public sealed class FinancialInstitutionConfiguration
 
     // ────────────────────────────────────────────────────────────
     // SOFT DELETE — IHaveSoftDelete
-    // Filtered global query to exclude deleted records automatically
+    // NOTE: HasQueryFilter is defined in DbContext.OnModelCreating
+    // combining both soft delete and tenant isolation in a single filter.
     // ────────────────────────────────────────────────────────────
 
     private static void ConfigureSoftDelete(EntityTypeBuilder<FinancialInstitution> builder)
@@ -95,15 +97,10 @@ public sealed class FinancialInstitutionConfiguration
         builder.Property(x => x.DeletedBy)
             .HasColumnName("DeletedBy")
             .IsRequired(false);
-
-        // Global query filter — deleted institutions are invisible to all queries
-        // Use IgnoreQueryFilters() explicitly when needed (admin, audit)
-        builder.HasQueryFilter(x => !x.IsDeleted);
     }
 
     // ────────────────────────────────────────────────────────────
     // OPTIMISTIC CONCURRENCY — IHaveAggregateVersion
-    // OriginalVersion is the concurrency token.
     // EF generates: UPDATE ... WHERE Id = ? AND "Version" = ?
     // If no rows affected → DbUpdateConcurrencyException → 409 Conflict
     // ────────────────────────────────────────────────────────────
@@ -119,8 +116,7 @@ public sealed class FinancialInstitutionConfiguration
 
     // ────────────────────────────────────────────────────────────
     // MULTI-TENANCY — IHaveTenant
-    // Global query filter ensures tenant isolation on every query.
-    // EF generates: WHERE TenantId = ? AND IsDeleted = false
+    // HasQueryFilter defined in DbContext combining tenant + soft delete.
     // Use IgnoreQueryFilters() explicitly for cross-tenant admin operations.
     // ────────────────────────────────────────────────────────────
 
@@ -129,26 +125,44 @@ public sealed class FinancialInstitutionConfiguration
         builder.Property(x => x.TenantId)
             .IsRequired()
             .HasColumnName("TenantId");
+    }
 
-        // Index for query performance — every query filters by TenantId
+    // ────────────────────────────────────────────────────────────
+    // INDEXES
+    // Direct CLR property indexes only.
+    // Owned type indexes defined inside their OwnsOne/HasConversion configs.
+    // ────────────────────────────────────────────────────────────
+
+    private static void ConfigureIndexes(EntityTypeBuilder<FinancialInstitution> builder)
+    {
+        // TenantId — every query filters by tenant via HasQueryFilter
         builder.HasIndex(x => x.TenantId)
             .HasDatabaseName("IX_FinancialInstitutions_TenantId");
     }
 
     // ────────────────────────────────────────────────────────────
-    // VALUE OBJECTS — MAIN TABLE
+    // COUNTRY — HasConversion (single primitive property)
+    // CountryCode has only one property (Code) → HasConversion is correct.
+    // Eliminates owned type tracking, resolves duplicate tracking warnings.
     // ────────────────────────────────────────────────────────────
 
     private static void ConfigureCountry(EntityTypeBuilder<FinancialInstitution> builder)
     {
-        builder.OwnsOne(x => x.Country, country =>
-        {
-            country.Property(c => c.Code)
-                .HasColumnName("CountryCode")
-                .IsRequired()
-                .HasMaxLength(3);
-        });
+        builder.Property(x => x.Country)
+            .HasConversion(
+                c => c.Code,
+                code => CountryCode.Create(code))
+            .HasColumnName("CountryCode")
+            .IsRequired()
+            .HasMaxLength(3);
     }
+
+    // ────────────────────────────────────────────────────────────
+    // TAX ID — OwnsOne (Value + Country)
+    // TaxId has two properties → OwnsOne is correct.
+    // Country inside TaxId uses HasConversion → no nested OwnsOne.
+    // Unique constraint: same TaxId value can exist in different countries.
+    // ────────────────────────────────────────────────────────────
 
     private static void ConfigureTaxId(EntityTypeBuilder<FinancialInstitution> builder)
     {
@@ -159,28 +173,51 @@ public sealed class FinancialInstitutionConfiguration
                 .IsRequired()
                 .HasMaxLength(50);
 
-            taxId.OwnsOne(t => t.Country, country =>
-            {
-                country.Property(c => c.Code)
-                    .HasColumnName("TaxIdCountryCode")
-                    .IsRequired()
-                    .HasMaxLength(3);
-            });
-        });
-    }
+            // CountryCode has single primitive → HasConversion inside OwnsOne
+            taxId.Property(t => t.Country)
+                .HasConversion(
+                    c => c.Code,
+                    code => CountryCode.Create(code))
+                .HasColumnName("TaxIdCountryCode")
+                .IsRequired()
+                .HasMaxLength(3);
 
-    private static void ConfigureSwiftBic(EntityTypeBuilder<FinancialInstitution> builder)
-    {
-        builder.OwnsOne(x => x.SwiftBic, swift =>
-        {
-            swift.Property(s => s.Code)
-                .HasColumnName("SwiftBic")
-                .HasMaxLength(11);
+            // Composite unique: same TaxId can exist in different countries
+            taxId.HasIndex(t => new { t.Value, t.Country })
+                .IsUnique()
+                .HasFilter("\"IsDeleted\" = false")
+                .HasDatabaseName("UX_FinancialInstitutions_TaxId");
         });
     }
 
     // ────────────────────────────────────────────────────────────
+    // SWIFT BIC — HasConversion (single primitive property)
+    // SwiftBic has only one property (Code) → HasConversion is correct.
+    // Nullable: Colombian banks may not have SWIFT.
+    // Unique: a SWIFT/BIC identifies one bank globally.
+    // ────────────────────────────────────────────────────────────
+
+    private static void ConfigureSwiftBic(EntityTypeBuilder<FinancialInstitution> builder)
+    {
+        builder.Property(x => x.SwiftBic)
+            .HasConversion(
+                s => s != null ? s.Code : null,
+                code => code != null ? SwiftBic.Create(code) : null)
+            .HasColumnName("SwiftBic")
+            .IsRequired(false)
+            .HasMaxLength(11);
+
+        // Unique — PostgreSQL natively allows multiple NULLs in unique indexes
+        // No HasFilter needed: NULL != NULL in SQL standard
+        builder.HasIndex(x => x.SwiftBic)
+            .IsUnique()
+            .HasFilter("\"SwiftBic\" IS NOT NULL AND \"IsDeleted\" = false")
+            .HasDatabaseName("UX_FinancialInstitutions_SwiftBic");
+    }
+
+    // ────────────────────────────────────────────────────────────
     // LOCAL CODES — SEPARATE TABLE
+    // Country inside LocalBankCode uses HasConversion → no nested OwnsOne.
     // ────────────────────────────────────────────────────────────
 
     private static void ConfigureLocalCodes(EntityTypeBuilder<FinancialInstitution> builder)
@@ -208,13 +245,14 @@ public sealed class FinancialInstitutionConfiguration
                 .IsRequired()
                 .HasMaxLength(20);
 
-            localCodes.OwnsOne(x => x.Country, country =>
-            {
-                country.Property(c => c.Code)
-                    .HasColumnName("CountryCode")
-                    .IsRequired()
-                    .HasMaxLength(3);
-            });
+            // CountryCode has single primitive → HasConversion, no nested OwnsOne
+            localCodes.Property(x => x.Country)
+                .HasConversion(
+                    c => c.Code,
+                    code => CountryCode.Create(code))
+                .HasColumnName("CountryCode")
+                .IsRequired()
+                .HasMaxLength(3);
         });
     }
 
@@ -224,8 +262,9 @@ public sealed class FinancialInstitutionConfiguration
     // WORKAROUND — EF Core 9 Bug:
     // NavigationFixer throws IndexOutOfRangeException with OwnsOne
     // in separate table + value conversion on owner PK + nested owned types.
-    // HasColumnType("uuid") on the FK provides enough metadata to partially
-    // mitigate the issue. See DatabaseSeeder for full workaround.
+    // HasConversion on AchBankCode.Country eliminates one level of nesting
+    // and reduces (but does not fully eliminate) the bug surface.
+    // See DatabaseSeeder for persistence workaround.
     // ────────────────────────────────────────────────────────────
 
     private static void ConfigureColombianDetails(EntityTypeBuilder<FinancialInstitution> builder)
@@ -259,13 +298,14 @@ public sealed class FinancialInstitutionConfiguration
                     .HasMaxLength(20)
                     .IsRequired();
 
-                ach.OwnsOne(a => a.Country, country =>
-                {
-                    country.Property(c => c.Code)
-                        .HasColumnName("AchCountryCode")
-                        .HasMaxLength(3)
-                        .IsRequired();
-                });
+                // CountryCode has single primitive → HasConversion, no nested OwnsOne
+                ach.Property(a => a.Country)
+                    .HasConversion(
+                        c => c.Code,
+                        code => CountryCode.Create(code))
+                    .HasColumnName("AchCountryCode")
+                    .IsRequired()
+                    .HasMaxLength(3);
             });
         });
     }

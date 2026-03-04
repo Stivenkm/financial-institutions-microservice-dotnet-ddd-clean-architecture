@@ -6,7 +6,7 @@ using Intec.Banking.FinancialInstitutions.Primitives;
 
 namespace Intec.Banking.FinancialInstitutions.Application.Features.FinancialInstitutions.DeleteFinancialInstitution;
 
-public class DeleteFinancialInstitutionCommandHandler
+public sealed class DeleteFinancialInstitutionCommandHandler
     : ICommandHandler<DeleteFinancialInstitutionCommand, FinancialInstitutionId>
 {
     private readonly IFinancialInstitutionRepository _repository;
@@ -24,13 +24,12 @@ public class DeleteFinancialInstitutionCommandHandler
         DeleteFinancialInstitutionCommand command,
         CancellationToken ct = default)
     {
-
         var institution = await _repository.GetByIdAsync(command.Id, ct);
 
         if (institution is null)
             throw new NotFoundException(command.Id.Value.ToString(), nameof(FinancialInstitution));
 
-        // Dominio marca como eliminado — dispara FinancialInstitutionDeletedEvent
+        // Marks the aggregate as deleted — raises FinancialInstitutionDeletedEvent
         institution.Delete();
 
         await _unitOfWork.SaveChangesAsync(ct);
