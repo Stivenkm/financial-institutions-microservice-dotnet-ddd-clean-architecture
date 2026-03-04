@@ -3,6 +3,7 @@ using System;
 using Intec.Banking.FinancialInstitutions.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Intec.Banking.FinancialInstitutions.Migrations
 {
     [DbContext(typeof(FinancialInstitutionsDbContext))]
-    partial class FinancialInstitutionsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260304045402_fix_unique_indexes_partial_softdelete")]
+    partial class fix_unique_indexes_partial_softdelete
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

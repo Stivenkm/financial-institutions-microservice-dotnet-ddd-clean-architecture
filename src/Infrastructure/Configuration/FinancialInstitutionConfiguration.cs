@@ -185,6 +185,7 @@ public sealed class FinancialInstitutionConfiguration
             // Composite unique: same TaxId can exist in different countries
             taxId.HasIndex(t => new { t.Value, t.Country })
                 .IsUnique()
+                .HasFilter("\"IsDeleted\" = false")
                 .HasDatabaseName("UX_FinancialInstitutions_TaxId");
         });
     }
@@ -210,6 +211,7 @@ public sealed class FinancialInstitutionConfiguration
         // No HasFilter needed: NULL != NULL in SQL standard
         builder.HasIndex(x => x.SwiftBic)
             .IsUnique()
+            .HasFilter("\"SwiftBic\" IS NOT NULL AND \"IsDeleted\" = false")
             .HasDatabaseName("UX_FinancialInstitutions_SwiftBic");
     }
 
