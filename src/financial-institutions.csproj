@@ -52,4 +52,8 @@
     </None>
   </ItemGroup>
 
+  <ItemGroup>
+	  <InternalsVisibleTo Include="FinancialInstitutions.UnitTests" />
+  </ItemGroup>
+
 </Project>
