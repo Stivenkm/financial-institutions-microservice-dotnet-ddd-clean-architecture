@@ -1,5 +1,6 @@
 using FluentValidation;
 using Intec.Banking.FinancialInstitutions.Infrastructure;
+using Intec.Banking.FinancialInstitutions.Infrastructure.DomainEvents;
 using Intec.Banking.FinancialInstitutions.Infrastructure.Filters;
 using Intec.Banking.FinancialInstitutions.Infrastructure.Interceptors;
 using Intec.Banking.FinancialInstitutions.Infrastructure.Services;
@@ -34,7 +35,7 @@ public static class DependencyInjection
         // Snowflake ID Generator
         var workerId = configuration.GetValue<ushort>("IdGenerator:WorkerId");
         var datacenterId = configuration.GetValue<ushort>("IdGenerator:DatacenterId");
-        
+
         var idGeneratorOptions = new IdGeneratorOptions
         {
             WorkerId = workerId,
@@ -52,9 +53,13 @@ public static class DependencyInjection
         services.AddScoped<CommandDispatcher>();
         services.AddScoped<QueryDispatcher>();
 
-        // Command and Query Handlers — auto-registered via reflection
+        // Domain Event Dispatcher
+        services.AddScoped<DomainEventDispatcher>();
+
+        // Command handlers, Query handlers, Domain event handlers — auto-registered via reflection
         RegisterHandlers(services, typeof(ICommandHandler<,>));
         RegisterHandlers(services, typeof(IQueryHandler<,>));
+        RegisterDomainEventHandlers(services);
 
         // FluentValidation — scans all validators in this assembly
         services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly);
@@ -79,4 +84,22 @@ public static class DependencyInjection
             services.AddScoped(handler.Interface, handler.Type);
     }
 
+    /// <summary>
+    /// Registers all IDomainEventHandler&lt;TEvent&gt; implementations.
+    /// Supports multiple handlers per event type (fan-out).
+    /// No-op if no handlers are registered yet.
+    /// </summary>
+    private static void RegisterDomainEventHandlers(IServiceCollection services)
+    {
+        var assembly = typeof(DependencyInjection).Assembly;
+        var handlerOpenType = typeof(IDomainEventHandler<>);
+
+        var registrations = assembly.GetTypes()
+            .Where(t => t.IsClass && !t.IsAbstract)
+            .SelectMany(t => t.GetInterfaces(), (type, iface) => new { Type = type, Interface = iface })
+            .Where(x => x.Interface.IsGenericType && x.Interface.GetGenericTypeDefinition() == handlerOpenType);
+
+        foreach (var reg in registrations)
+            services.AddScoped(reg.Interface, reg.Type);
+    }
 }
