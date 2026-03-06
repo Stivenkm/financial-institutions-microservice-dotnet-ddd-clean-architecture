@@ -166,3 +166,5 @@ if (app.Environment.IsDevelopment())
 app.MapFinancialInstitutionEndpoints();
 
 app.Run();
+
+public partial class Program { }
