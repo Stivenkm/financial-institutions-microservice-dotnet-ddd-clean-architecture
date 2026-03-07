@@ -129,8 +129,9 @@ public sealed class UpdateFinancialInstitutionCommandHandlerTests
         _repository.GetByIdAsync(Arg.Any<FinancialInstitutionId>(), Arg.Any<CancellationToken>())
             .Returns((FinancialInstitution?)null);
 
+        // OriginalVersion = 0 — handler throws NotFoundException before reaching concurrency check
         var cmd = new UpdateFinancialInstitutionCommand(
-            FinancialInstitutionId.New(), "Nombre", null, "CO", "900123456-1", null, null);
+            FinancialInstitutionId.New(), "Nombre", null, "CO", "900123456-1", null, 0);
 
         var act = async () => await _sut.HandleAsync(cmd, CancellationToken.None);
 
@@ -144,8 +145,9 @@ public sealed class UpdateFinancialInstitutionCommandHandlerTests
         _repository.GetByIdAsync(Arg.Any<FinancialInstitutionId>(), Arg.Any<CancellationToken>())
             .Returns(institution);
 
+        // Send version 99 — institution has version 0 → mismatch
         var cmd = new UpdateFinancialInstitutionCommand(
-            institution.Id, "Nombre", null, "CO", "900123456-1", null, -1);
+            institution.Id, "Nombre", null, "CO", "900123456-1", null, 99);
 
         var act = async () => await _sut.HandleAsync(cmd, CancellationToken.None);
 
@@ -154,18 +156,19 @@ public sealed class UpdateFinancialInstitutionCommandHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_NullOriginalVersion_SkipsConcurrencyCheck()
+    public async Task HandleAsync_CorrectVersion_ExecutesSuccessfully()
     {
-        var institution = Helpers.ColombianBank();
+        var institution = Helpers.ColombianBank(); // OriginalVersion = 0
         _repository.GetByIdAsync(Arg.Any<FinancialInstitutionId>(), Arg.Any<CancellationToken>())
             .Returns(institution);
 
+        // OriginalVersion matches — concurrency check passes
         var cmd = new UpdateFinancialInstitutionCommand(
-            institution.Id, "Nuevo Nombre", null, "CO", "900123456-1", null, null);
+            institution.Id, "Nuevo Nombre", null, "CO", "900123456-1", null, 0);
 
         var act = async () => await _sut.HandleAsync(cmd, CancellationToken.None);
 
-        await act.Should().NotThrowAsync();
+        await act.Should().NotThrowAsync<DbUpdateConcurrencyException>();
     }
 }
 
@@ -258,7 +261,7 @@ public sealed class SetColombianDetailsCommandHandlerTests
         => _sut = new SetColombianDetailsCommandHandler(_repository, _unitOfWork);
 
     [Fact]
-    public async Task HandleAsync_ColombianInstitution_SetsDetails()
+    public async Task HandleAsync_ColombianInstitution_SetsDetailsAndRegistersAchCode()
     {
         var institution = Helpers.ColombianBank();
         _repository.GetByIdAsync(Arg.Any<FinancialInstitutionId>(), Arg.Any<CancellationToken>())
@@ -268,6 +271,8 @@ public sealed class SetColombianDetailsCommandHandlerTests
         await _sut.HandleAsync(cmd, CancellationToken.None);
 
         institution.ColombianDetails.Should().NotBeNull();
+        // ACH code is also registered in LocalCodes for payment routing
+        institution.LocalCodes.Should().ContainSingle(c => c.Code == "001");
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 

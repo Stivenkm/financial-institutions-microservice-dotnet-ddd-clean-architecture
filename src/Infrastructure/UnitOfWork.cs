@@ -26,8 +26,20 @@ public sealed class UnitOfWork : IUnitOfWork
     /// </summary>
     public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
-        // Collect before save — EF resets state to Unchanged after SaveChangesAsync
-        var aggregates = _context.ChangeTracker
+        // Collect aggregates with pending domain events BEFORE saving.
+        // We cannot filter by EF state (Added/Modified) because some operations
+        // (AddLocalCode, SetColombianDetails) only mutate owned child entities —
+        // the parent aggregate remains Unchanged in the change tracker even though
+        // it has accumulated domain events that must be dispatched.
+        var aggregatesWithEvents = _context.ChangeTracker
+            .Entries<IAggregate>()
+            .Select(e => e.Entity)
+            .Where(a => a is IHaveDomainEvents h && h.HasUncommittedDomainEvents())
+            .ToList();
+
+        // Collect aggregates that were added or modified for version increment.
+        // EF resets state to Unchanged after SaveChangesAsync, so we capture now.
+        var aggregatesForVersioning = _context.ChangeTracker
             .Entries<IAggregate>()
             .Where(e => e.State is EntityState.Added or EntityState.Modified)
             .Select(e => e.Entity)
@@ -35,7 +47,8 @@ public sealed class UnitOfWork : IUnitOfWork
 
         var result = await _context.SaveChangesAsync(cancellationToken);
 
-        foreach (var aggregate in aggregates)
+        // Dispatch domain events from all aggregates that had pending events.
+        foreach (var aggregate in aggregatesWithEvents)
         {
             if (aggregate is IHaveDomainEvents hasDomainEvents)
             {
@@ -43,9 +56,11 @@ public sealed class UnitOfWork : IUnitOfWork
                 foreach (var domainEvent in events)
                     await _dispatcher.DispatchAsync(domainEvent, cancellationToken);
             }
-
-            aggregate.IncrementVersion();
         }
+
+        // Increment version only for aggregates that were persisted as Added or Modified.
+        foreach (var aggregate in aggregatesForVersioning)
+            aggregate.IncrementVersion();
 
         return result;
     }
