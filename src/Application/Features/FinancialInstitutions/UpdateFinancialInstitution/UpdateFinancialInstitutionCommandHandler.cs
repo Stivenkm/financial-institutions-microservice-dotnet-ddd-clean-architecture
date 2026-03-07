@@ -26,24 +26,20 @@ public sealed class UpdateFinancialInstitutionCommandHandler
         UpdateFinancialInstitutionCommand command,
         CancellationToken ct)
     {
-        // Buscar entidad existente
         var institution = await _repository.GetByIdAsync(command.Id, ct);
-
         if (institution is null)
             throw new NotFoundException(command.Id.Value.ToString(), nameof(FinancialInstitution));
 
-        // Optimistic concurrency — verify version matches what the client read
-        // If versions differ, another user already modified this institution
-        if (command.OriginalVersion.HasValue && institution.OriginalVersion != command.OriginalVersion.Value)
+        // Optimistic concurrency — verify version matches what the client read.
+        // If versions differ, another user already modified this institution.
+        // OriginalVersion is required — clients must always send the version they read.
+        if (institution.OriginalVersion != command.OriginalVersion)
             throw new DbUpdateConcurrencyException(
-                $"The institution was modified by another user. " +
-                $"Expected version {command.OriginalVersion.Value}, current version {institution.OriginalVersion}.");
+               $"Concurrency conflict on field 'originalVersion': client sent {command.OriginalVersion}, " +
+               $"current value is {institution.OriginalVersion}. Fetch the latest version and retry.");
 
-        // Build Value Objects — domain validates all business rules
         var country = CountryCode.Create(command.CountryCode);
-
         var taxId = TaxId.Create(command.TaxIdValue, country);
-
         var swift = command.SwiftBicCode switch
         {
             null => null,
@@ -62,10 +58,8 @@ public sealed class UpdateFinancialInstitutionCommandHandler
             taxId: taxId,
             swiftBic: swift);
 
-        // Persistir cambios
         await _unitOfWork.SaveChangesAsync(ct);
 
         return institution.Id;
     }
 }
-

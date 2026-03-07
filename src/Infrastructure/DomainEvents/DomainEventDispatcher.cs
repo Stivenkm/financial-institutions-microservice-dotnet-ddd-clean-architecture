@@ -26,14 +26,15 @@ public sealed class DomainEventDispatcher
     {
         var eventType = domainEvent.GetType();
         var handlerType = typeof(IDomainEventHandler<>).MakeGenericType(eventType);
-        var enumerableType = typeof(IEnumerable<>).MakeGenericType(handlerType);
 
-        var handlers = _serviceProvider.GetService(enumerableType);
-        if (handlers is not IEnumerable<object> handlerList) return;
+        // GetServices resolves ALL registered handlers for this event type (fan-out).
+        // GetService (singular) only returns the last registered handler and silently
+        // drops the rest when multiple handlers are registered for the same event.
+        var handlers = _serviceProvider.GetServices(handlerType);
 
         var method = handlerType.GetMethod(nameof(IDomainEventHandler<IDomainEvent>.HandleAsync))!;
 
-        foreach (var handler in handlerList)
+        foreach (var handler in handlers)
         {
             var task = (Task)method.Invoke(handler, new object[] { domainEvent, ct })!;
             await task;

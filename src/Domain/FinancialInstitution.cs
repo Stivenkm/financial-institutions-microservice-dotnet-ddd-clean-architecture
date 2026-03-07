@@ -12,7 +12,7 @@ public sealed class FinancialInstitution : Aggregate<FinancialInstitutionId>
     public string OfficialName { get; private set; } = null!;
     public string? TradeName { get; private set; }
     public CountryCode Country { get; private set; } = null!;
-    public TaxId TaxId { get; private set; } = null!;       // private set — domain controls mutation
+    public TaxId TaxId { get; private set; } = null!;
     public SwiftBic? SwiftBic { get; private set; }
 
     public IReadOnlyCollection<LocalBankCode> LocalCodes => _localCodes.AsReadOnly();
@@ -40,11 +40,8 @@ public sealed class FinancialInstitution : Aggregate<FinancialInstitutionId>
         SwiftBic = swiftBic;
 
         if (!Equals(TaxId.Country, Country))
-        {
             throw new ArgumentException("TaxId country must match the institution's country.");
-        }
     }
-
 
     public static FinancialInstitution CreateBank(
         string officialName,
@@ -120,9 +117,19 @@ public sealed class FinancialInstitution : Aggregate<FinancialInstitutionId>
     public void SetColombianDetails(ColombianBankingDetails details)
     {
         if (!Country.IsColombia())
-            throw new InvalidOperationException("Colombian details only allowed for Colombian institutions.");
+            throw new InvalidOperationException(
+                "Colombian details only allowed for Colombian institutions.");
+
         ColombianDetails = details;
-        //AddLocalCode(details.AchBankCode);
+
+        // Create a new LocalBankCode instance from the ACH code value.
+        // We cannot reuse details.AchBankCode directly — EF Core would attempt
+        // to track the same object under two owned navigations simultaneously,
+        // which produces undefined behavior.
+        var achLocalCode = LocalBankCode.CreateAchCode(details.AchBankCode.Code, Country);
+        AddLocalCode(achLocalCode);
+
+        AddDomainEvent(new ColombianDetailsSetEvent(Id));
     }
 
     public bool CanReceiveInternationalTransfer()
